@@ -10,10 +10,10 @@ export default async function handler(req, res) {
     const url = process.env.KV_REST_API_URL;
     const token = process.env.KV_REST_API_TOKEN;
 
-    const r = await fetch(`${url}/set/share_${code}`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ value: data, ex: 604800 })
+    // Upstash REST: SET key value EX seconds
+    const r = await fetch(`${url}/set/share_${code}/${encodeURIComponent(data)}/ex/604800`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` }
     });
     const result = await r.json();
     res.status(200).json({ ok: true, result });
