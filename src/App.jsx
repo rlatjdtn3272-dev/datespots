@@ -113,6 +113,11 @@ export default function App() {
   const [aiPreview, setAiPreview] = useState(null);
   const [aiError, setAiError] = useState("");
   const [toast, setToast] = useState("");
+  const [conceptOpen, setConceptOpen] = useState(false);
+  const [conceptSearch, setConceptSearch] = useState("");
+  // 새 태그 입력
+  const [manTagInput, setManTagInput] = useState("");
+  const [editTagInput, setEditTagInput] = useState("");
   // 수정 상태
   const [editPlace, setEditPlace] = useState(null);
   const [editName, setEditName] = useState("");
@@ -263,6 +268,14 @@ isNaeng은 평양냉면 전문점이면 true.` }]
     showToast("🗑 삭제됐어요.");
   };
 
+  const toggleVisited = (id) => {
+    const updated = places.map(p => p.id===id ? {...p, visited:!p.visited} : p);
+    save(updated);
+    const p = updated.find(x=>x.id===id);
+    setSelectedPlace(p);
+    showToast(p.visited ? "✅ 방문 완료로 표시했어요!" : "방문 표시를 해제했어요.");
+  };
+
   const resetAdd = () => {
     setManName(""); setManAddr(""); setManRegion(""); setManNote(""); setManTags([]); setManConceptList([]); setManConceptInput("");
     setAiName(""); setAiAddr(""); setAiNote(""); setAiPreview(null); setAiError("");
@@ -317,7 +330,13 @@ isNaeng은 평양냉면 전문점이면 true.` }]
             <Input label="주소" value={manAddr} onChange={setManAddr} placeholder="예) 서울 마포구 희우정로 19"/>
             <div style={{marginBottom:14}}>
               <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:6}}>태그</label>
-              <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+              <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>
+                {manTags.filter(t=>!TAG_OPTIONS.includes(t)).map(t=>(
+                  <span key={t} style={{fontSize:12,padding:"4px 12px",borderRadius:999,background:"#E0F2FE",color:"#0369A1",display:"flex",alignItems:"center",gap:4}}>
+                    {t}
+                    <button onClick={()=>setManTags(prev=>prev.filter(x=>x!==t))} style={{background:"none",border:"none",color:"#0369A1",cursor:"pointer",fontSize:14,padding:0,lineHeight:1}}>×</button>
+                  </span>
+                ))}
                 {TAG_OPTIONS.map(t=>{
                   const c=TAG_COLORS[t];
                   const active=manTags.includes(t);
@@ -328,6 +347,14 @@ isNaeng은 평양냉면 전문점이면 true.` }]
                     </button>
                   );
                 })}
+              </div>
+              <div style={{display:"flex",gap:6}}>
+                <input value={manTagInput} onChange={e=>setManTagInput(e.target.value)}
+                  onKeyDown={e=>{if(e.key==="Enter"&&manTagInput.trim()){e.preventDefault();setManTags(prev=>[...prev,manTagInput.trim()]);setManTagInput("");}}}
+                  placeholder="새 태그 직접 입력 후 Enter"
+                  style={{flex:1,padding:"9px 12px",borderRadius:10,border:"1.5px solid #E5E7EB",fontSize:13,outline:"none",fontFamily:"inherit"}}/>
+                <button onClick={()=>{if(manTagInput.trim()){setManTags(prev=>[...prev,manTagInput.trim()]);setManTagInput("");}}}
+                  style={{padding:"0 14px",borderRadius:10,background:"#111",color:"#fff",border:"none",cursor:"pointer",fontSize:18}}>+</button>
               </div>
             </div>
             <div style={{marginBottom:14}}>
@@ -401,8 +428,12 @@ isNaeng은 평양냉면 전문점이면 true.` }]
             <span style={{fontSize:17,fontWeight:700,color:"#111"}}>{p.name}</span>
           </div>
           <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>toggleVisited(p.id)}
+              style={{background:p.visited?"#DCFCE7":"none",border:"1px solid",borderColor:p.visited?"#86EFAC":"#E5E7EB",fontSize:13,color:p.visited?"#166534":"#374151",cursor:"pointer",padding:"4px 12px",borderRadius:8,fontWeight:p.visited?600:400}}>
+              {p.visited?"✓ 방문":"방문"}
+            </button>
             <button onClick={()=>startEdit(p)} style={{background:"none",border:"1px solid #E5E7EB",fontSize:13,color:"#374151",cursor:"pointer",padding:"4px 12px",borderRadius:8}}>수정</button>
-            {p.id?.startsWith("u")&&<button onClick={()=>deletePlace(p.id)} style={{background:"none",border:"none",fontSize:13,color:"#EF4444",cursor:"pointer",padding:"4px 8px"}}>삭제</button>}
+            <button onClick={()=>deletePlace(p.id)} style={{background:"none",border:"none",fontSize:13,color:"#EF4444",cursor:"pointer",padding:"4px 8px"}}>삭제</button>
           </div>
         </div>
         <div style={{padding:"20px"}}>
@@ -440,12 +471,26 @@ isNaeng은 평양냉면 전문점이면 true.` }]
           <Input label="주소" value={editAddr} onChange={setEditAddr} placeholder="예) 서울 마포구 희우정로 19"/>
           <div style={{marginBottom:14}}>
             <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:6}}>태그</label>
-            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>
+              {editTags.filter(t=>!TAG_OPTIONS.includes(t)).map(t=>(
+                <span key={t} style={{fontSize:12,padding:"4px 12px",borderRadius:999,background:"#E0F2FE",color:"#0369A1",display:"flex",alignItems:"center",gap:4}}>
+                  {t}
+                  <button onClick={()=>setEditTags(prev=>prev.filter(x=>x!==t))} style={{background:"none",border:"none",color:"#0369A1",cursor:"pointer",fontSize:14,padding:0,lineHeight:1}}>×</button>
+                </span>
+              ))}
               {TAG_OPTIONS.map(t=>{
                 const c=TAG_COLORS[t]; const active=editTags.includes(t);
                 return <button key={t} onClick={()=>setEditTags(prev=>prev.includes(t)?prev.filter(x=>x!==t):[...prev,t])}
                   style={{fontSize:12,padding:"4px 12px",borderRadius:999,border:active?"none":"1px solid #E5E7EB",background:active&&c?c[0]:"#fff",color:active&&c?c[1]:"#6B7280",fontWeight:active?600:400,cursor:"pointer"}}>{TL[t]||t}</button>;
               })}
+            </div>
+            <div style={{display:"flex",gap:6}}>
+              <input value={editTagInput} onChange={e=>setEditTagInput(e.target.value)}
+                onKeyDown={e=>{if(e.key==="Enter"&&editTagInput.trim()){e.preventDefault();setEditTags(prev=>[...prev,editTagInput.trim()]);setEditTagInput("");}}}
+                placeholder="새 태그 직접 입력 후 Enter"
+                style={{flex:1,padding:"9px 12px",borderRadius:10,border:"1.5px solid #E5E7EB",fontSize:13,outline:"none",fontFamily:"inherit"}}/>
+              <button onClick={()=>{if(editTagInput.trim()){setEditTags(prev=>[...prev,editTagInput.trim()]);setEditTagInput("");}}}
+                style={{padding:"0 14px",borderRadius:10,background:"#111",color:"#fff",border:"none",cursor:"pointer",fontSize:18}}>+</button>
             </div>
           </div>
           <div style={{marginBottom:14}}>
@@ -493,9 +538,27 @@ isNaeng은 평양냉면 전문점이면 true.` }]
         </div>
         <div style={{overflowX:"auto",display:"flex",gap:6,paddingBottom:8,marginBottom:4}}>{["전체지역",...uniqueRegions].map(r=><FBtn key={r} label={r==="전체지역"?"전체":r} active={activeRegion===r} onClick={()=>setActiveRegion(r)}/>)}</div>
         <div style={{overflowX:"auto",display:"flex",gap:6,paddingBottom:8,marginBottom:4}}>{TYPE_FILTERS.map(f=><FBtn key={f.key} label={f.label} active={activeType===f.key} onClick={()=>setActiveType(f.key)}/>)}</div>
-        <div style={{overflowX:"auto",display:"flex",gap:6,paddingBottom:6}}>
-          <FBtn label="전체분위기" active={activeConcept==="all"} onClick={()=>setActiveConcept("all")}/>
-          {allConcepts.map(c=><FBtn key={c} label={c} active={activeConcept===c} onClick={()=>setActiveConcept(c)}/>)}
+        {/* 컨셉 필터 드롭다운 */}
+        <div style={{marginBottom:4}}>
+          <button onClick={()=>{setConceptOpen(o=>!o);setConceptSearch("");}}
+            style={{display:"flex",alignItems:"center",gap:6,padding:"7px 14px",borderRadius:999,border:"1px solid #E5E7EB",background:activeConcept!=="all"?"#111":"#fff",color:activeConcept!=="all"?"#fff":"#6B7280",fontSize:12,fontWeight:activeConcept!=="all"?600:400,cursor:"pointer"}}>
+            {activeConcept==="all"?"🎨 컨셉·분위기":activeConcept}
+            <span style={{fontSize:10,transition:"transform 0.2s",display:"inline-block",transform:conceptOpen?"rotate(180deg)":"rotate(0deg)"}}>▼</span>
+          </button>
+          {conceptOpen&&(
+            <div style={{position:"absolute",left:16,right:16,background:"#fff",borderRadius:14,boxShadow:"0 4px 20px rgba(0,0,0,0.12)",zIndex:50,padding:12,marginTop:6}}>
+              <input value={conceptSearch} onChange={e=>setConceptSearch(e.target.value)} placeholder="검색..."
+                style={{width:"100%",padding:"9px 12px",borderRadius:8,border:"1px solid #E5E7EB",fontSize:13,outline:"none",boxSizing:"border-box",marginBottom:10,fontFamily:"inherit"}}/>
+              <div style={{display:"flex",flexWrap:"wrap",gap:6,maxHeight:200,overflowY:"auto"}}>
+                <button onClick={()=>{setActiveConcept("all");setConceptOpen(false);}}
+                  style={{fontSize:12,padding:"5px 12px",borderRadius:999,border:"none",background:activeConcept==="all"?"#111":"#F3F4F6",color:activeConcept==="all"?"#fff":"#374151",cursor:"pointer",fontWeight:activeConcept==="all"?600:400}}>전체</button>
+                {allConcepts.filter(c=>c.includes(conceptSearch)).map(c=>(
+                  <button key={c} onClick={()=>{setActiveConcept(c);setConceptOpen(false);}}
+                    style={{fontSize:12,padding:"5px 12px",borderRadius:999,border:"none",background:activeConcept===c?"#111":"#F3F4F6",color:activeConcept===c?"#fff":"#374151",cursor:"pointer",fontWeight:activeConcept===c?600:400}}>{c}</button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -516,7 +579,10 @@ isNaeng은 평양냉면 전문점이면 true.` }]
                 style={{background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:8,borderLeft:p.숲길?"3px solid #10B981":"none",border:p.숲길?"1px solid #E5E7EB":"1px solid #F3F4F6",cursor:"pointer",WebkitTapHighlightColor:"transparent"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                   <span style={{fontSize:15,fontWeight:600,color:"#111",flex:1}}>{p.name}</span>
-                  {p.id?.startsWith("u")&&<span style={{fontSize:10,background:"#EEF2FF",color:"#6366F1",padding:"2px 6px",borderRadius:4,marginLeft:8,flexShrink:0}}>추가됨</span>}
+                  <div style={{display:"flex",gap:4,alignItems:"center",flexShrink:0,marginLeft:8}}>
+                    {p.visited&&<span style={{fontSize:10,background:"#DCFCE7",color:"#166534",padding:"2px 8px",borderRadius:4,fontWeight:700}}>✓ 방문</span>}
+                    {p.id?.startsWith("u")&&<span style={{fontSize:10,background:"#EEF2FF",color:"#6366F1",padding:"2px 6px",borderRadius:4}}>추가됨</span>}
+                  </div>
                 </div>
                 <div style={{fontSize:12,color:"#9CA3AF",marginBottom:8,lineHeight:1.4}}>{p.addr}</div>
                 <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:p.concepts?.length?6:0}}>{p.tags?.map(t=><Tag key={t} tag={t}/>)}</div>
