@@ -90,10 +90,8 @@ const Input = ({label,value,onChange,placeholder,required})=>(
 );
 
 export default function App() {
-  const [places, setPlaces] = useState(() => {
-    try { const s = localStorage.getItem(STORAGE_KEY); return s ? JSON.parse(s) : INITIAL_PLACES; }
-    catch { return INITIAL_PLACES; }
-  });
+  const [places, setPlaces] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeRegion, setActiveRegion] = useState("전체지역");
   const [activeType, setActiveType] = useState("all");
   const [activeConcept, setActiveConcept] = useState("all");
@@ -116,55 +114,47 @@ export default function App() {
   const [aiError, setAiError] = useState("");
   const [toast, setToast] = useState("");
 
-  const save = useCallback((data) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  const save = useCallback(async (data) => {
     setPlaces(data);
+    try {
+      await fetch("/api/places-set", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: JSON.stringify(data) })
+      });
+    } catch (e) { console.error("저장 실패", e); }
   }, []);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2500); };
 
-  // ── API Route 경유 공유 링크 import
+  // ── 서버에서 데이터 불러오기
   useEffect(() => {
-    const hash = window.location.hash;
-    if (hash.startsWith("#share=")) {
-      const code = hash.slice(7);
-      fetch(`/api/share-load?code=${code}`)
+    fetch("/api/places-get")
       .then(r => r.json())
       .then(result => {
         if (result.ok && result.data) {
-          const imported = JSON.parse(result.data);
-          if (Array.isArray(imported) && imported.length > 0) {
-            const current = (() => { try { const s = localStorage.getItem(STORAGE_KEY); return s ? JSON.parse(s) : INITIAL_PLACES; } catch { return INITIAL_PLACES; } })();
-            const currentIds = new Set(current.map(p => p.id));
-            const newOnes = imported.filter(p => !currentIds.has(p.id));
-            const merged = [...current, ...newOnes];
-            save(merged);
-            window.location.hash = "";
-            showToast(newOnes.length > 0 ? `✅ ${newOnes.length}곳이 새로 추가됐어요!` : "✅ 이미 최신 상태예요!");
-          }
+          setPlaces(JSON.parse(result.data));
+        } else {
+          setPlaces(INITIAL_PLACES);
+          fetch("/api/places-set", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ data: JSON.stringify(INITIAL_PLACES) })
+          });
         }
+        setLoading(false);
       })
-      .catch(() => showToast("링크가 만료됐거나 오류가 발생했어요."));
-    }
+      .catch(() => { setPlaces(INITIAL_PLACES); setLoading(false); });
   }, []);
 
-  // ── 공유 링크 (API Route 경유)
+  // ── 공유 링크 (앱 URL 그대로 공유)
   const exportLink = async () => {
-    showToast("🔗 링크 생성 중...");
+    const shareUrl = "https://dongdong-gotgot.vercel.app";
     try {
-      const code = Math.random().toString(36).slice(2, 8);
-      const r = await fetch("/api/share-save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, data: JSON.stringify(places) })
-      });
-      const result = await r.json();
-      if (!result.ok) throw new Error("저장 실패");
-      const shareUrl = `${window.location.origin}${window.location.pathname}#share=${code}`;
       await navigator.clipboard.writeText(shareUrl);
       showToast("📋 링크 복사 완료! 상대방에게 보내세요 💌");
     } catch {
-      showToast("링크 생성 실패. 다시 시도해주세요.");
+      showToast("링크 복사 실패");
     }
   };
 
@@ -393,7 +383,9 @@ isNaeng은 평양냉면 전문점이면 true.` }]
       </div>
 
       <div style={{padding:"12px 16px 100px"}}>
-        {Object.keys(grouped).length===0?(
+        {loading?(
+          <div style={{textAlign:"center",padding:"60px 0",color:"#9CA3AF"}}><div style={{fontSize:30,marginBottom:12}}>⏳</div><div style={{fontSize:15}}>불러오는 중...</div></div>
+        ):Object.keys(grouped).length===0?(
           <div style={{textAlign:"center",padding:"60px 0",color:"#9CA3AF"}}><div style={{fontSize:40,marginBottom:12}}>🔍</div><div style={{fontSize:15}}>해당 조건의 장소가 없어요</div></div>
         ):Object.entries(grouped).map(([region,rplaces])=>(
           <div key={region} style={{marginBottom:24}}>
@@ -417,6 +409,7 @@ isNaeng은 평양냉면 전문점이면 true.` }]
             ))}
           </div>
         ))}
+        )}
       </div>
       {toast&&<div style={{position:"fixed",bottom:90,left:"50%",transform:"translateX(-50%)",background:"#111",color:"#fff",padding:"10px 20px",borderRadius:20,fontSize:14,fontWeight:500,zIndex:100,whiteSpace:"nowrap",boxShadow:"0 4px 12px rgba(0,0,0,0.2)"}}>{toast}</div>}
     </div>
