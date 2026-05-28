@@ -409,7 +409,6 @@ isNaeng은 평양냉면 전문점이면 true.` }]
             ))}
           </div>
         ))}
-        )}
       </div>
       {toast&&<div style={{position:"fixed",bottom:90,left:"50%",transform:"translateX(-50%)",background:"#111",color:"#fff",padding:"10px 20px",borderRadius:20,fontSize:14,fontWeight:500,zIndex:100,whiteSpace:"nowrap",boxShadow:"0 4px 12px rgba(0,0,0,0.2)"}}>{toast}</div>}
     </div>
