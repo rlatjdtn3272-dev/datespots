@@ -9,9 +9,10 @@ export default async function handler(req, res) {
     const { data } = req.body;
     const url = process.env.KV_REST_API_URL;
     const token = process.env.KV_REST_API_TOKEN;
-    const r = await fetch(`${url}/set/places/${encodeURIComponent(data)}`, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}` }
+    const r = await fetch(`${url}/set/places`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(["SET", "places", data])
     });
     const result = await r.json();
     res.status(200).json({ ok: true, result });
