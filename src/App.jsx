@@ -288,6 +288,15 @@ isNaeng은 평양냉면 전문점이면 true.` }]
     places.forEach(p=>(p.concepts||[]).forEach(c=>{ if(!base.includes(c)) base.push(c); }));
     return base;
   },[places]);
+
+  const allTypeTags = useMemo(()=>{
+    const base = [...TYPE_FILTERS];
+    const existing = new Set(TYPE_FILTERS.map(f=>f.key));
+    places.forEach(p=>(p.tags||[]).forEach(t=>{
+      if(!existing.has(t)){ existing.add(t); base.push({key:t, label:t}); }
+    }));
+    return base;
+  },[places]);
   const filtered = useMemo(()=>places.filter(p=>{
     const r = activeRegion==="전체지역"||p.region===activeRegion;
     const t = activeType==="all"||p.tags?.includes(activeType);
@@ -537,7 +546,7 @@ isNaeng은 평양냉면 전문점이면 true.` }]
           </div>
         </div>
         <div style={{overflowX:"auto",display:"flex",gap:6,paddingBottom:8,marginBottom:4}}>{["전체지역",...uniqueRegions].map(r=><FBtn key={r} label={r==="전체지역"?"전체":r} active={activeRegion===r} onClick={()=>setActiveRegion(r)}/>)}</div>
-        <div style={{overflowX:"auto",display:"flex",gap:6,paddingBottom:8,marginBottom:4}}>{TYPE_FILTERS.map(f=><FBtn key={f.key} label={f.label} active={activeType===f.key} onClick={()=>setActiveType(f.key)}/>)}</div>
+        <div style={{overflowX:"auto",display:"flex",gap:6,paddingBottom:8,marginBottom:4}}>{allTypeTags.map(f=><FBtn key={f.key} label={f.label} active={activeType===f.key} onClick={()=>setActiveType(f.key)}/>)}</div>
         {/* 컨셉 필터 드롭다운 */}
         <div style={{marginBottom:4}}>
           <button onClick={()=>{setConceptOpen(o=>!o);setConceptSearch("");}}
