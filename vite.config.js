@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon-192.png', 'icon-512.png'],
       manifest: {
-        name: '우리 가볼 곳',
-        short_name: '가볼 곳',
+        name: '동동곳곳',
+        short_name: '동동곳곳',
         description: '우리만의 데이트 & 맛집 리스트',
         theme_color: '#111111',
         background_color: '#FAFAFA',
