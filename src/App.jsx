@@ -113,6 +113,18 @@ export default function App() {
   const [aiPreview, setAiPreview] = useState(null);
   const [aiError, setAiError] = useState("");
   const [toast, setToast] = useState("");
+  // 수정 상태
+  const [editPlace, setEditPlace] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [editAddr, setEditAddr] = useState("");
+  const [editRegion, setEditRegion] = useState("");
+  const [editNote, setEditNote] = useState("");
+  const [editTags, setEditTags] = useState([]);
+  const [editConcepts, setEditConcepts] = useState([]);
+  const [editConceptInput, setEditConceptInput] = useState("");
+  // 수동 추가 컨셉 칩 상태
+  const [manConceptInput, setManConceptInput] = useState("");
+  const [manConceptList, setManConceptList] = useState([]);
 
   const save = useCallback(async (data) => {
     setPlaces(data);
@@ -161,7 +173,6 @@ export default function App() {
   // ── 수동 추가
   const confirmManual = () => {
     if (!manName.trim() || !manRegion.trim()) { showToast("이름과 지역은 필수예요!"); return; }
-    const concepts = manConcepts.split(",").map(c => c.trim()).filter(Boolean);
     const newPlace = {
       id: "u" + Date.now(),
       name: manName.trim(),
@@ -169,13 +180,44 @@ export default function App() {
       region: manRegion.trim(),
       search: manName.trim() + " " + manRegion.trim(),
       tags: manTags,
-      concepts,
+      concepts: manConceptList,
       ...(manNote.trim() ? { note: manNote.trim() } : {}),
     };
     save([...places, newPlace]);
-    setManName(""); setManAddr(""); setManRegion(""); setManNote(""); setManTags([]); setManConcepts("");
+    setManName(""); setManAddr(""); setManRegion(""); setManNote(""); setManTags([]); setManConceptList([]); setManConceptInput("");
     setView("list");
     showToast("✅ 추가됐어요!");
+  };
+
+  // ── 수정
+  const startEdit = (p) => {
+    setEditPlace(p);
+    setEditName(p.name);
+    setEditAddr(p.addr);
+    setEditRegion(p.region);
+    setEditNote(p.note||"");
+    setEditTags(p.tags||[]);
+    setEditConcepts(p.concepts||[]);
+    setEditConceptInput("");
+    setView("edit");
+  };
+
+  const confirmEdit = () => {
+    if (!editName.trim() || !editRegion.trim()) { showToast("이름과 지역은 필수예요!"); return; }
+    const updated = places.map(p => p.id === editPlace.id ? {
+      ...p,
+      name: editName.trim(),
+      addr: editAddr.trim() || editRegion.trim() + " 일대",
+      region: editRegion.trim(),
+      search: editName.trim() + " " + editRegion.trim(),
+      tags: editTags,
+      concepts: editConcepts,
+      note: editNote.trim() || undefined,
+    } : p);
+    save(updated);
+    setView("detail");
+    setSelectedPlace(updated.find(p => p.id === editPlace.id));
+    showToast("✅ 수정됐어요!");
   };
 
   // ── AI 분석
@@ -222,12 +264,17 @@ isNaeng은 평양냉면 전문점이면 true.` }]
   };
 
   const resetAdd = () => {
-    setManName(""); setManAddr(""); setManRegion(""); setManNote(""); setManTags([]); setManConcepts("");
+    setManName(""); setManAddr(""); setManRegion(""); setManNote(""); setManTags([]); setManConceptList([]); setManConceptInput("");
     setAiName(""); setAiAddr(""); setAiNote(""); setAiPreview(null); setAiError("");
     setView("list");
   };
 
   const uniqueRegions = useMemo(()=>[...new Set(places.map(p=>p.region))],[places]);
+  const allConcepts = useMemo(()=>{
+    const base = [...CONCEPT_FILTERS];
+    places.forEach(p=>(p.concepts||[]).forEach(c=>{ if(!base.includes(c)) base.push(c); }));
+    return base;
+  },[places]);
   const filtered = useMemo(()=>places.filter(p=>{
     const r = activeRegion==="전체지역"||p.region===activeRegion;
     const t = activeType==="all"||p.tags?.includes(activeType);
@@ -284,9 +331,23 @@ isNaeng은 평양냉면 전문점이면 true.` }]
               </div>
             </div>
             <div style={{marginBottom:14}}>
-              <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:6}}>컨셉 키워드 <span style={{color:"#9CA3AF",fontWeight:400}}>(쉼표로 구분)</span></label>
-              <input value={manConcepts} onChange={e=>setManConcepts(e.target.value)} placeholder="예) 루프탑, 야경, 데이트"
-                style={{width:"100%",padding:"11px 14px",borderRadius:10,border:"1.5px solid #E5E7EB",fontSize:14,outline:"none",boxSizing:"border-box",fontFamily:"inherit"}}/>
+              <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:6}}>컨셉 키워드</label>
+              <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:8}}>
+                {manConceptList.map(c=>(
+                  <span key={c} style={{fontSize:12,padding:"3px 10px",borderRadius:999,background:"#111",color:"#fff",display:"flex",alignItems:"center",gap:4}}>
+                    {c}
+                    <button onClick={()=>setManConceptList(prev=>prev.filter(x=>x!==c))} style={{background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:14,padding:0,lineHeight:1}}>×</button>
+                  </span>
+                ))}
+              </div>
+              <div style={{display:"flex",gap:6}}>
+                <input value={manConceptInput} onChange={e=>setManConceptInput(e.target.value)}
+                  onKeyDown={e=>{if((e.key==="Enter"||e.key===",")&&manConceptInput.trim()){e.preventDefault();setManConceptList(prev=>[...prev,manConceptInput.trim()]);setManConceptInput("");}}}
+                  placeholder="키워드 입력 후 Enter"
+                  style={{flex:1,padding:"11px 14px",borderRadius:10,border:"1.5px solid #E5E7EB",fontSize:14,outline:"none",fontFamily:"inherit"}}/>
+                <button onClick={()=>{if(manConceptInput.trim()){setManConceptList(prev=>[...prev,manConceptInput.trim()]);setManConceptInput("");}}}
+                  style={{padding:"0 14px",borderRadius:10,background:"#111",color:"#fff",border:"none",cursor:"pointer",fontSize:18}}>+</button>
+              </div>
             </div>
             <Input label="메모" value={manNote} onChange={setManNote} placeholder="예) 월 휴무, 웨이팅 있음"/>
             <button onClick={confirmManual}
@@ -339,7 +400,10 @@ isNaeng은 평양냉면 전문점이면 true.` }]
             <button onClick={()=>setView("list")} style={{background:"none",border:"none",fontSize:22,cursor:"pointer",color:"#374151",padding:0}}>←</button>
             <span style={{fontSize:17,fontWeight:700,color:"#111"}}>{p.name}</span>
           </div>
-          {p.id?.startsWith("u")&&<button onClick={()=>deletePlace(p.id)} style={{background:"none",border:"none",fontSize:13,color:"#EF4444",cursor:"pointer",padding:"4px 8px"}}>삭제</button>}
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>startEdit(p)} style={{background:"none",border:"1px solid #E5E7EB",fontSize:13,color:"#374151",cursor:"pointer",padding:"4px 12px",borderRadius:8}}>수정</button>
+            {p.id?.startsWith("u")&&<button onClick={()=>deletePlace(p.id)} style={{background:"none",border:"none",fontSize:13,color:"#EF4444",cursor:"pointer",padding:"4px 8px"}}>삭제</button>}
+          </div>
         </div>
         <div style={{padding:"20px"}}>
           <div style={{background:"#fff",borderRadius:16,padding:20,boxShadow:"0 1px 6px rgba(0,0,0,0.06)",marginBottom:14}}>
@@ -360,6 +424,59 @@ isNaeng은 평양냉면 전문점이면 true.` }]
     );
   }
 
+  // ── 수정 화면
+  if (view==="edit"&&editPlace) return (
+    <div style={s}>
+      <div style={{...headerStyle,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <button onClick={()=>setView("detail")} style={{background:"none",border:"none",fontSize:22,cursor:"pointer",color:"#374151",padding:0}}>←</button>
+          <span style={{fontSize:17,fontWeight:700,color:"#111"}}>장소 수정</span>
+        </div>
+      </div>
+      <div style={{padding:"20px 20px 60px"}}>
+        <div style={{background:"#fff",borderRadius:16,padding:20,boxShadow:"0 1px 6px rgba(0,0,0,0.06)"}}>
+          <Input label="가게 이름" value={editName} onChange={setEditName} placeholder="예) 트릴로지 합정" required/>
+          <Input label="지역" value={editRegion} onChange={setEditRegion} placeholder="예) 합정, 속초" required/>
+          <Input label="주소" value={editAddr} onChange={setEditAddr} placeholder="예) 서울 마포구 희우정로 19"/>
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:6}}>태그</label>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+              {TAG_OPTIONS.map(t=>{
+                const c=TAG_COLORS[t]; const active=editTags.includes(t);
+                return <button key={t} onClick={()=>setEditTags(prev=>prev.includes(t)?prev.filter(x=>x!==t):[...prev,t])}
+                  style={{fontSize:12,padding:"4px 12px",borderRadius:999,border:active?"none":"1px solid #E5E7EB",background:active&&c?c[0]:"#fff",color:active&&c?c[1]:"#6B7280",fontWeight:active?600:400,cursor:"pointer"}}>{TL[t]||t}</button>;
+              })}
+            </div>
+          </div>
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:6}}>컨셉 키워드</label>
+            <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:8}}>
+              {editConcepts.map(c=>(
+                <span key={c} style={{fontSize:12,padding:"3px 10px",borderRadius:999,background:"#111",color:"#fff",display:"flex",alignItems:"center",gap:4}}>
+                  {c}
+                  <button onClick={()=>setEditConcepts(prev=>prev.filter(x=>x!==c))} style={{background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:14,padding:0,lineHeight:1}}>×</button>
+                </span>
+              ))}
+            </div>
+            <div style={{display:"flex",gap:6}}>
+              <input value={editConceptInput} onChange={e=>setEditConceptInput(e.target.value)}
+                onKeyDown={e=>{if((e.key==="Enter"||e.key===",")&&editConceptInput.trim()){e.preventDefault();setEditConcepts(prev=>[...prev,editConceptInput.trim()]);setEditConceptInput("");}}}
+                placeholder="키워드 입력 후 Enter"
+                style={{flex:1,padding:"11px 14px",borderRadius:10,border:"1.5px solid #E5E7EB",fontSize:14,outline:"none",fontFamily:"inherit"}}/>
+              <button onClick={()=>{if(editConceptInput.trim()){setEditConcepts(prev=>[...prev,editConceptInput.trim()]);setEditConceptInput("");}}}
+                style={{padding:"0 14px",borderRadius:10,background:"#111",color:"#fff",border:"none",cursor:"pointer",fontSize:18}}>+</button>
+            </div>
+          </div>
+          <Input label="메모" value={editNote} onChange={setEditNote} placeholder="예) 월 휴무, 웨이팅 있음"/>
+          <button onClick={confirmEdit}
+            style={{width:"100%",padding:"14px",borderRadius:12,border:"none",background:"#111",color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer"}}>
+            수정 완료 ✓
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   // ── 메인 리스트
   return (
     <div style={s}>
@@ -378,7 +495,7 @@ isNaeng은 평양냉면 전문점이면 true.` }]
         <div style={{overflowX:"auto",display:"flex",gap:6,paddingBottom:8,marginBottom:4}}>{TYPE_FILTERS.map(f=><FBtn key={f.key} label={f.label} active={activeType===f.key} onClick={()=>setActiveType(f.key)}/>)}</div>
         <div style={{overflowX:"auto",display:"flex",gap:6,paddingBottom:6}}>
           <FBtn label="전체분위기" active={activeConcept==="all"} onClick={()=>setActiveConcept("all")}/>
-          {CONCEPT_FILTERS.map(c=><FBtn key={c} label={c} active={activeConcept===c} onClick={()=>setActiveConcept(c)}/>)}
+          {allConcepts.map(c=><FBtn key={c} label={c} active={activeConcept===c} onClick={()=>setActiveConcept(c)}/>)}
         </div>
       </div>
 
