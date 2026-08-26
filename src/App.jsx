@@ -140,6 +140,10 @@ export default function App() {
   const [adminPwError, setAdminPwError] = useState(false);
   const [accessLogs, setAccessLogs] = useState([]);
   const [logsLoading, setLogsLoading] = useState(false);
+  // 위치
+  const [locations, setLocations] = useState([]);
+  const [locLoading, setLocLoading] = useState(false);
+  const [adminTab, setAdminTab] = useState("access"); // access | location
 
   const save = useCallback(async (data) => {
     setPlaces(data);
@@ -153,11 +157,20 @@ export default function App() {
 
   const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(""),2500); };
 
-  // 기기 ID 및 접속 로그
+  // 기기 ID 및 접속 로그 + 위치
   useEffect(()=>{
     let deviceId = localStorage.getItem("dd_device_id");
     if(!deviceId){ deviceId="device_"+Math.random().toString(36).slice(2,10); localStorage.setItem("dd_device_id",deviceId); }
     fetch("/api/access-log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device:deviceId})}).catch(()=>{});
+    // 위치 수집
+    if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(
+        (pos)=>{
+          fetch("/api/location-set",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device:deviceId,lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:Math.round(pos.coords.accuracy)})}).catch(()=>{});
+        },
+        ()=>{} // 거부하면 무시
+      );
+    }
   },[]);
 
   // 서버에서 데이터 불러오기
@@ -219,8 +232,14 @@ export default function App() {
     try{const r=await fetch("/api/access-log");const result=await r.json();if(result.ok)setAccessLogs(result.logs);}
     catch{}setLogsLoading(false);
   };
+  const loadLocations=async()=>{
+    setLocLoading(true);
+    try{const r=await fetch("/api/location-get");const result=await r.json();if(result.ok)setLocations(result.locations);}
+    catch{}setLocLoading(false);
+  };
+
   const handleAdminLogin=()=>{
-    if(adminPw===ADMIN_PW){setAdminAuthed(true);setAdminPwError(false);loadAccessLogs();}
+    if(adminPw===ADMIN_PW){setAdminAuthed(true);setAdminPwError(false);loadAccessLogs();loadLocations();}
     else{setAdminPwError(true);}
   };
 
@@ -399,30 +418,80 @@ export default function App() {
           </div>
         ):(
           <div>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
-              <div style={{fontSize:16,fontWeight:700,color:"#111"}}>📱 접속 기록</div>
-              <button onClick={loadAccessLogs} style={{background:"none",border:"1px solid #E5E7EB",padding:"6px 12px",borderRadius:8,fontSize:12,color:"#6B7280",cursor:"pointer"}}>새로고침</button>
+            {/* 관리자 서브탭 */}
+            <div style={{display:"flex",gap:0,borderBottom:"1px solid #F3F4F6",marginBottom:16}}>
+              <button onClick={()=>setAdminTab("access")} style={{flex:1,padding:"10px 0",border:"none",background:"none",fontSize:13,fontWeight:adminTab==="access"?700:400,color:adminTab==="access"?"#111":"#9CA3AF",borderBottom:adminTab==="access"?"2px solid #111":"2px solid transparent",cursor:"pointer"}}>📱 접속 기록</button>
+              <button onClick={()=>{setAdminTab("location");loadLocations();}} style={{flex:1,padding:"10px 0",border:"none",background:"none",fontSize:13,fontWeight:adminTab==="location"?700:400,color:adminTab==="location"?"#111":"#9CA3AF",borderBottom:adminTab==="location"?"2px solid #111":"2px solid transparent",cursor:"pointer"}}>📍 위치</button>
             </div>
-            {logsLoading?(
-              <div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>불러오는 중...</div>
-            ):accessLogs.length===0?(
-              <div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>접속 기록이 없어요</div>
-            ):(
-              <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                {accessLogs.sort((a,b)=>new Date(b.lastAccess)-new Date(a.lastAccess)).map((log,i)=>{
-                  const date=new Date(log.lastAccess);
-                  const diff=Math.floor((new Date()-date)/1000/60);
-                  const timeStr=diff<1?"방금 전":diff<60?`${diff}분 전`:diff<1440?`${Math.floor(diff/60)}시간 전`:`${Math.floor(diff/1440)}일 전`;
-                  return(
-                    <div key={i} style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:"1px solid #F3F4F6"}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-                        <span style={{fontSize:14,fontWeight:600,color:"#111"}}>📱 기기 {i+1}</span>
-                        <span style={{fontSize:12,background:diff<60?"#DCFCE7":"#F3F4F6",color:diff<60?"#166534":"#6B7280",padding:"2px 8px",borderRadius:999,fontWeight:500}}>{timeStr}</span>
-                      </div>
-                      <div style={{fontSize:12,color:"#9CA3AF"}}>{date.toLocaleString("ko-KR")}</div>
-                    </div>
-                  );
-                })}
+
+            {adminTab==="access"&&(
+              <div>
+                <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+                  <button onClick={loadAccessLogs} style={{background:"none",border:"1px solid #E5E7EB",padding:"6px 12px",borderRadius:8,fontSize:12,color:"#6B7280",cursor:"pointer"}}>새로고침</button>
+                </div>
+                {logsLoading?(
+                  <div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>불러오는 중...</div>
+                ):accessLogs.length===0?(
+                  <div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>접속 기록이 없어요</div>
+                ):(
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    {accessLogs.sort((a,b)=>new Date(b.lastAccess)-new Date(a.lastAccess)).map((log,i)=>{
+                      const date=new Date(log.lastAccess);
+                      const diff=Math.floor((new Date()-date)/1000/60);
+                      const timeStr=diff<1?"방금 전":diff<60?`${diff}분 전`:diff<1440?`${Math.floor(diff/60)}시간 전`:`${Math.floor(diff/1440)}일 전`;
+                      return(
+                        <div key={i} style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:"1px solid #F3F4F6"}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                            <span style={{fontSize:14,fontWeight:600,color:"#111"}}>📱 기기 {i+1}</span>
+                            <span style={{fontSize:12,background:diff<60?"#DCFCE7":"#F3F4F6",color:diff<60?"#166534":"#6B7280",padding:"2px 8px",borderRadius:999,fontWeight:500}}>{timeStr}</span>
+                          </div>
+                          <div style={{fontSize:12,color:"#9CA3AF"}}>{date.toLocaleString("ko-KR")}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {adminTab==="location"&&(
+              <div>
+                <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+                  <button onClick={loadLocations} style={{background:"none",border:"1px solid #E5E7EB",padding:"6px 12px",borderRadius:8,fontSize:12,color:"#6B7280",cursor:"pointer"}}>새로고침</button>
+                </div>
+                {locLoading?(
+                  <div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>불러오는 중...</div>
+                ):locations.length===0?(
+                  <div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>
+                    <div style={{fontSize:30,marginBottom:8}}>📍</div>
+                    <div style={{fontSize:14}}>위치 정보가 없어요</div>
+                    <div style={{fontSize:12,marginTop:4,color:"#CBD5E1"}}>앱 접속 시 위치 권한을 허용해야 해요</div>
+                  </div>
+                ):(
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    {locations.sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt)).map((loc,i)=>{
+                      const date=new Date(loc.updatedAt);
+                      const diff=Math.floor((new Date()-date)/1000/60);
+                      const timeStr=diff<1?"방금 전":diff<60?`${diff}분 전`:diff<1440?`${Math.floor(diff/60)}시간 전`:`${Math.floor(diff/1440)}일 전`;
+                      const naverUrl=`https://map.naver.com/p/search/${loc.lat},${loc.lng}`;
+                      const kakaoUrl=`https://map.kakao.com/link/map/위치,${loc.lat},${loc.lng}`;
+                      return(
+                        <div key={i} style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:"1px solid #F3F4F6"}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                            <span style={{fontSize:14,fontWeight:600,color:"#111"}}>📱 기기 {i+1}</span>
+                            <span style={{fontSize:12,background:diff<60?"#DCFCE7":"#F3F4F6",color:diff<60?"#166534":"#6B7280",padding:"2px 8px",borderRadius:999,fontWeight:500}}>{timeStr}</span>
+                          </div>
+                          <div style={{fontSize:12,color:"#9CA3AF",marginBottom:4}}>{date.toLocaleString("ko-KR")}</div>
+                          <div style={{fontSize:12,color:"#6B7280",marginBottom:10}}>위도 {loc.lat?.toFixed(5)} · 경도 {loc.lng?.toFixed(5)} · 정확도 {loc.accuracy}m</div>
+                          <div style={{display:"flex",gap:6}}>
+                            <button onClick={()=>window.open(naverUrl,"_blank")} style={{flex:1,padding:"8px 0",borderRadius:8,border:"none",background:"#03C75A",color:"#fff",fontSize:12,fontWeight:600,cursor:"pointer"}}>🗺 네이버 지도</button>
+                            <button onClick={()=>window.open(kakaoUrl,"_blank")} style={{flex:1,padding:"8px 0",borderRadius:8,border:"none",background:"#FEE500",color:"#000",fontSize:12,fontWeight:600,cursor:"pointer"}}>🗺 카카오 지도</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>
