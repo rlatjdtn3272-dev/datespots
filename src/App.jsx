@@ -62,20 +62,18 @@ const INITIAL_PLACES = [
 ];
 
 const TAG_COLORS = {
-  food:    ["#FFF0E6","#C4520A"], bar:     ["#EEF0FF","#3730A3"],
-  cafe:    ["#FFF8E6","#92400E"], activity:["#E6F4FF","#0C4A6E"],
-  market:  ["#F0FFF4","#14532D"], naeng:   ["#FFF0F5","#9D174D"],
-  숲길:    ["#ECFDF5","#065F46"], 한식:    ["#FFF7ED","#7C2D12"],
-  일식:    ["#FDF2F8","#701A75"], 양식:    ["#EFF6FF","#1E3A5F"],
-  분식:    ["#FFFBEB","#78350F"],
+  food:["#FFF0E6","#C4520A"],bar:["#EEF0FF","#3730A3"],cafe:["#FFF8E6","#92400E"],
+  activity:["#E6F4FF","#0C4A6E"],market:["#F0FFF4","#14532D"],naeng:["#FFF0F5","#9D174D"],
+  숲길:["#ECFDF5","#065F46"],한식:["#FFF7ED","#7C2D12"],일식:["#FDF2F8","#701A75"],
+  양식:["#EFF6FF","#1E3A5F"],분식:["#FFFBEB","#78350F"],
 };
-const TL = { food:"식당",bar:"바/펍",cafe:"카페",naeng:"평양냉면",activity:"체험",market:"시장",숲길:"경의선숲길",한식:"한식",일식:"일식",양식:"양식",분식:"분식" };
-const REGION_EMOJI = { "영등포":"🏙","문래":"🏭","경의선 숲길 전체":"🌿","홍대 · 연남":"🎨","합정":"🌊","공덕 · 마포":"🏙","혜화 · 대학로":"🎭","북촌 · 삼청 · 안국":"🏯","종로 · 서촌":"🍜","용산":"🌆","서초 · 강남":"✨","중구 · 신당":"🌿","관악 · 강서":"🏠","마포 · 상암":"🎙","광진 · 동대문":"🌳","경기 · 안산 · 안양":"🗺","경기 · 시흥":"🌿","경기 · 성남":"🍜","오이도":"🐚","강릉":"🌊","부산":"🌊","기타":"🛒" };
+const TL = {food:"식당",bar:"바/펍",cafe:"카페",naeng:"평양냉면",activity:"체험",market:"시장",숲길:"경의선숲길",한식:"한식",일식:"일식",양식:"양식",분식:"분식"};
+const REGION_EMOJI = {"영등포":"🏙","문래":"🏭","경의선 숲길 전체":"🌿","홍대 · 연남":"🎨","합정":"🌊","공덕 · 마포":"🏙","혜화 · 대학로":"🎭","북촌 · 삼청 · 안국":"🏯","종로 · 서촌":"🍜","용산":"🌆","서초 · 강남":"✨","중구 · 신당":"🌿","관악 · 강서":"🏠","마포 · 상암":"🎙","광진 · 동대문":"🌳","경기 · 안산 · 안양":"🗺","경기 · 시흥":"🌿","경기 · 성남":"🍜","오이도":"🐚","강릉":"🌊","부산":"🌊","기타":"🛒"};
 const TYPE_FILTERS = [{key:"all",label:"전체"},{key:"food",label:"🍽 식당"},{key:"한식",label:"🥢 한식"},{key:"일식",label:"🍱 일식"},{key:"양식",label:"🍝 양식"},{key:"naeng",label:"🍜 냉면"},{key:"bar",label:"🍷 바/펍"},{key:"cafe",label:"☕ 카페"},{key:"activity",label:"🎯 체험"},{key:"market",label:"🛒 시장"},{key:"숲길",label:"🌿 숲길"}];
 const CONCEPT_FILTERS = ["루프탑","코타츠","와인바","칵테일바","영화컨셉","전통주","하이볼","노포","한강피크닉","다락방","한옥분위기","오픈런","수목원","데이트","해산물","포차"];
 const TAG_OPTIONS = ["food","bar","cafe","activity","market","한식","일식","양식","분식","naeng","숲길"];
+const ADMIN_PW = "853146";
 
-// ── 컴포넌트 (App 밖 정의 → 키보드 버그 방지)
 const Tag = ({tag})=>{ const c=TAG_COLORS[tag]; if(!c)return null; return <span style={{fontSize:11,padding:"2px 8px",borderRadius:999,background:c[0],color:c[1],fontWeight:500}}>{TL[tag]||tag}</span>; };
 const Chip = ({label})=><span style={{fontSize:11,padding:"2px 9px",borderRadius:999,background:"#F3F4F6",color:"#6B7280",border:"1px solid #E5E7EB"}}>{label}</span>;
 const FBtn = ({label,active,onClick})=>(
@@ -89,23 +87,35 @@ const Input = ({label,value,onChange,placeholder,required})=>(
   </div>
 );
 
+const BottomTab = ({tab,setTab}) => (
+  <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"#fff",borderTop:"1px solid #F3F4F6",display:"flex",zIndex:50}}>
+    <button onClick={()=>setTab("list")} style={{flex:1,padding:"10px 0 14px",border:"none",background:"none",cursor:"pointer",fontSize:10,color:tab==="list"?"#111":"#9CA3AF",fontWeight:tab==="list"?700:400,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+      <span style={{fontSize:22}}>📍</span>목록
+    </button>
+    <button onClick={()=>setTab("admin")} style={{flex:1,padding:"10px 0 14px",border:"none",background:"none",cursor:"pointer",fontSize:10,color:tab==="admin"?"#111":"#9CA3AF",fontWeight:tab==="admin"?700:400,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+      <span style={{fontSize:22}}>⚙️</span>관리자
+    </button>
+  </div>
+);
+
 export default function App() {
   const [places, setPlaces] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState("list");
   const [activeRegion, setActiveRegion] = useState("전체지역");
   const [activeType, setActiveType] = useState("all");
   const [activeConcept, setActiveConcept] = useState("all");
   const [view, setView] = useState("list");
   const [selectedPlace, setSelectedPlace] = useState(null);
-  const [addTab, setAddTab] = useState("manual"); // manual | ai
-  // 수동 입력 상태
+  const [addTab, setAddTab] = useState("manual");
   const [manName, setManName] = useState("");
   const [manAddr, setManAddr] = useState("");
   const [manRegion, setManRegion] = useState("");
   const [manNote, setManNote] = useState("");
   const [manTags, setManTags] = useState([]);
-  const [manConcepts, setManConcepts] = useState("");
-  // AI 상태
+  const [manTagInput, setManTagInput] = useState("");
+  const [manConceptInput, setManConceptInput] = useState("");
+  const [manConceptList, setManConceptList] = useState([]);
   const [aiName, setAiName] = useState("");
   const [aiAddr, setAiAddr] = useState("");
   const [aiNote, setAiNote] = useState("");
@@ -115,10 +125,7 @@ export default function App() {
   const [toast, setToast] = useState("");
   const [conceptOpen, setConceptOpen] = useState(false);
   const [conceptSearch, setConceptSearch] = useState("");
-  // 새 태그 입력
-  const [manTagInput, setManTagInput] = useState("");
   const [editTagInput, setEditTagInput] = useState("");
-  // 수정 상태
   const [editPlace, setEditPlace] = useState(null);
   const [editName, setEditName] = useState("");
   const [editAddr, setEditAddr] = useState("");
@@ -127,212 +134,123 @@ export default function App() {
   const [editTags, setEditTags] = useState([]);
   const [editConcepts, setEditConcepts] = useState([]);
   const [editConceptInput, setEditConceptInput] = useState("");
-  // 수동 추가 컨셉 칩 상태
-  const [manConceptInput, setManConceptInput] = useState("");
-  const [manConceptList, setManConceptList] = useState([]);
+  // 관리자
+  const [adminAuthed, setAdminAuthed] = useState(false);
+  const [adminPw, setAdminPw] = useState("");
+  const [adminPwError, setAdminPwError] = useState(false);
+  const [accessLogs, setAccessLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
 
   const save = useCallback(async (data) => {
     setPlaces(data);
     try {
       await fetch("/api/places-set", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data: JSON.stringify(data) })
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({data:JSON.stringify(data)})
       });
-    } catch (e) { console.error("저장 실패", e); }
-  }, []);
+    } catch(e){console.error("저장 실패",e);}
+  },[]);
 
-  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2500); };
+  const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(""),2500); };
 
-  // ── 서버에서 데이터 불러오기
-  useEffect(() => {
-    fetch("/api/places-get")
-      .then(r => r.json())
-      .then(result => {
-        if (result.ok && result.data) {
-          setPlaces(JSON.parse(result.data));
-        } else {
-          setPlaces(INITIAL_PLACES);
-          fetch("/api/places-set", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ data: JSON.stringify(INITIAL_PLACES) })
-          });
-        }
-        setLoading(false);
-      })
-      .catch(() => { setPlaces(INITIAL_PLACES); setLoading(false); });
-  }, []);
+  // 기기 ID 및 접속 로그
+  useEffect(()=>{
+    let deviceId = localStorage.getItem("dd_device_id");
+    if(!deviceId){ deviceId="device_"+Math.random().toString(36).slice(2,10); localStorage.setItem("dd_device_id",deviceId); }
+    fetch("/api/access-log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device:deviceId})}).catch(()=>{});
+  },[]);
 
-  // ── 공유 링크 (앱 URL 그대로 공유)
+  // 서버에서 데이터 불러오기
+  useEffect(()=>{
+    fetch("/api/places-get").then(r=>r.json()).then(result=>{
+      if(result.ok&&result.data){ setPlaces(JSON.parse(result.data)); }
+      else { setPlaces(INITIAL_PLACES); fetch("/api/places-set",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:JSON.stringify(INITIAL_PLACES)})}); }
+      setLoading(false);
+    }).catch(()=>{setPlaces(INITIAL_PLACES);setLoading(false);});
+  },[]);
+
   const exportLink = async () => {
-    const shareUrl = "https://dongdong-gotgot.vercel.app";
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      showToast("📋 링크 복사 완료! 상대방에게 보내세요 💌");
-    } catch {
-      showToast("링크 복사 실패");
-    }
+    try { await navigator.clipboard.writeText("https://dongdong-gotgot.vercel.app"); showToast("📋 링크 복사 완료! 상대방에게 보내세요 💌"); }
+    catch { showToast("링크 복사 실패"); }
   };
 
-  // ── 수동 추가
   const confirmManual = () => {
-    if (!manName.trim() || !manRegion.trim()) { showToast("이름과 지역은 필수예요!"); return; }
-    const newPlace = {
-      id: "u" + Date.now(),
-      name: manName.trim(),
-      addr: manAddr.trim() || manRegion.trim() + " 일대",
-      region: manRegion.trim(),
-      search: manName.trim() + " " + manRegion.trim(),
-      tags: manTags,
-      concepts: manConceptList,
-      ...(manNote.trim() ? { note: manNote.trim() } : {}),
-    };
-    save([...places, newPlace]);
-    setManName(""); setManAddr(""); setManRegion(""); setManNote(""); setManTags([]); setManConceptList([]); setManConceptInput("");
-    setView("list");
-    showToast("✅ 추가됐어요!");
+    if(!manName.trim()||!manRegion.trim()){showToast("이름과 지역은 필수예요!");return;}
+    const newPlace={id:"u"+Date.now(),name:manName.trim(),addr:manAddr.trim()||manRegion.trim()+" 일대",region:manRegion.trim(),search:manName.trim()+" "+manRegion.trim(),tags:manTags,concepts:manConceptList,...(manNote.trim()?{note:manNote.trim()}:{})};
+    save([...places,newPlace]);
+    setManName("");setManAddr("");setManRegion("");setManNote("");setManTags([]);setManConceptList([]);setManConceptInput("");setManTagInput("");
+    setView("list");setTab("list");showToast("✅ 추가됐어요!");
   };
 
-  // ── 수정
-  const startEdit = (p) => {
-    setEditPlace(p);
-    setEditName(p.name);
-    setEditAddr(p.addr);
-    setEditRegion(p.region);
-    setEditNote(p.note||"");
-    setEditTags(p.tags||[]);
-    setEditConcepts(p.concepts||[]);
-    setEditConceptInput("");
-    setView("edit");
+  const startEdit=(p)=>{setEditPlace(p);setEditName(p.name);setEditAddr(p.addr);setEditRegion(p.region);setEditNote(p.note||"");setEditTags(p.tags||[]);setEditConcepts(p.concepts||[]);setEditConceptInput("");setEditTagInput("");setView("edit");};
+  const confirmEdit=()=>{
+    if(!editName.trim()||!editRegion.trim()){showToast("이름과 지역은 필수예요!");return;}
+    const updated=places.map(p=>p.id===editPlace.id?{...p,name:editName.trim(),addr:editAddr.trim()||editRegion.trim()+" 일대",region:editRegion.trim(),search:editName.trim()+" "+editRegion.trim(),tags:editTags,concepts:editConcepts,note:editNote.trim()||undefined}:p);
+    save(updated);setView("detail");setSelectedPlace(updated.find(p=>p.id===editPlace.id));showToast("✅ 수정됐어요!");
   };
 
-  const confirmEdit = () => {
-    if (!editName.trim() || !editRegion.trim()) { showToast("이름과 지역은 필수예요!"); return; }
-    const updated = places.map(p => p.id === editPlace.id ? {
-      ...p,
-      name: editName.trim(),
-      addr: editAddr.trim() || editRegion.trim() + " 일대",
-      region: editRegion.trim(),
-      search: editName.trim() + " " + editRegion.trim(),
-      tags: editTags,
-      concepts: editConcepts,
-      note: editNote.trim() || undefined,
-    } : p);
-    save(updated);
-    setView("detail");
-    setSelectedPlace(updated.find(p => p.id === editPlace.id));
-    showToast("✅ 수정됐어요!");
-  };
-
-  // ── AI 분석
-  const analyzeWithAI = async () => {
-    if (!aiName.trim()) { setAiError("가게 이름을 입력해주세요."); return; }
-    setAiLoading(true); setAiError(""); setAiPreview(null);
-    try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method:"POST",
-        headers:{"Content-Type":"application/json","x-api-key":import.meta.env.VITE_ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-        body:JSON.stringify({
-          model:"claude-sonnet-4-20250514", max_tokens:1000,
-          messages:[{ role:"user", content:`다음 가게를 분석해서 JSON만 응답해. 마크다운 없이.
-가게이름: ${aiName}
-주소: ${aiAddr||"없음"}
-{"region":"지역명","search":"네이버 검색어 3-4단어","tags":["food/bar/cafe/activity/market 중 해당","한식/일식/양식/분식 중 하나(식당이면)"],"concepts":["분위기 키워드 3-5개"],"isNaeng":false}
-isNaeng은 평양냉면 전문점이면 true.` }]
-        })
-      });
-      const data = await res.json();
-      const text = data.content?.map(c=>c.text||"").join("").replace(/```json|```/g,"").trim();
-      const parsed = JSON.parse(text);
-      if (parsed.isNaeng) parsed.tags = [...(parsed.tags||[]),"naeng"];
-      delete parsed.isNaeng;
-      setAiPreview(parsed);
-    } catch { setAiError("분석 오류가 발생했어요. API 키를 확인해주세요."); }
+  const analyzeWithAI=async()=>{
+    if(!aiName.trim()){setAiError("가게 이름을 입력해주세요.");return;}
+    setAiLoading(true);setAiError("");setAiPreview(null);
+    try{
+      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":import.meta.env.VITE_ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:`다음 가게를 분석해서 JSON만 응답해. 마크다운 없이.\n가게이름: ${aiName}\n주소: ${aiAddr||"없음"}\n{"region":"지역명","search":"네이버 검색어 3-4단어","tags":["food/bar/cafe/activity/market 중 해당","한식/일식/양식/분식 중 하나(식당이면)"],"concepts":["분위기 키워드 3-5개"],"isNaeng":false}\nisNaeng은 평양냉면 전문점이면 true.`}]})});
+      const data=await res.json();
+      const text=data.content?.map(c=>c.text||"").join("").replace(/```json|```/g,"").trim();
+      const parsed=JSON.parse(text);
+      if(parsed.isNaeng)parsed.tags=[...(parsed.tags||[]),"naeng"];
+      delete parsed.isNaeng;setAiPreview(parsed);
+    }catch{setAiError("분석 오류가 발생했어요.");}
     setAiLoading(false);
   };
 
-  const confirmAI = () => {
-    if (!aiPreview) return;
-    const newPlace = { id:"u"+Date.now(), name:aiName.trim(), addr:aiAddr.trim()||aiPreview.region+" 일대", ...(aiNote.trim()?{note:aiNote.trim()}:{}), ...aiPreview };
-    save([...places, newPlace]);
-    setAiName(""); setAiAddr(""); setAiNote(""); setAiPreview(null);
-    setView("list");
-    showToast("✅ 추가됐어요!");
+  const confirmAI=()=>{
+    if(!aiPreview)return;
+    const newPlace={id:"u"+Date.now(),name:aiName.trim(),addr:aiAddr.trim()||aiPreview.region+" 일대",...(aiNote.trim()?{note:aiNote.trim()}:{}),...aiPreview};
+    save([...places,newPlace]);setAiName("");setAiAddr("");setAiNote("");setAiPreview(null);setView("list");setTab("list");showToast("✅ 추가됐어요!");
   };
 
-  const deletePlace = (id) => {
-    if (!window.confirm("이 장소를 삭제할까요?")) return;
-    save(places.filter(p=>p.id!==id));
-    setView("list"); setSelectedPlace(null);
-    showToast("🗑 삭제됐어요.");
+  const deletePlace=(id)=>{if(!window.confirm("이 장소를 삭제할까요?"))return;save(places.filter(p=>p.id!==id));setView("list");setSelectedPlace(null);showToast("🗑 삭제됐어요.");};
+  const toggleVisited=(id)=>{const updated=places.map(p=>p.id===id?{...p,visited:!p.visited}:p);save(updated);const p=updated.find(x=>x.id===id);setSelectedPlace(p);showToast(p.visited?"✅ 방문 완료로 표시했어요!":"방문 표시를 해제했어요.");};
+
+  const resetAdd=()=>{setManName("");setManAddr("");setManRegion("");setManNote("");setManTags([]);setManConceptList([]);setManConceptInput("");setManTagInput("");setAiName("");setAiAddr("");setAiNote("");setAiPreview(null);setAiError("");setView("list");};
+
+  const loadAccessLogs=async()=>{
+    setLogsLoading(true);
+    try{const r=await fetch("/api/access-log");const result=await r.json();if(result.ok)setAccessLogs(result.logs);}
+    catch{}setLogsLoading(false);
+  };
+  const handleAdminLogin=()=>{
+    if(adminPw===ADMIN_PW){setAdminAuthed(true);setAdminPwError(false);loadAccessLogs();}
+    else{setAdminPwError(true);}
   };
 
-  const toggleVisited = (id) => {
-    const updated = places.map(p => p.id===id ? {...p, visited:!p.visited} : p);
-    save(updated);
-    const p = updated.find(x=>x.id===id);
-    setSelectedPlace(p);
-    showToast(p.visited ? "✅ 방문 완료로 표시했어요!" : "방문 표시를 해제했어요.");
-  };
+  const uniqueRegions=useMemo(()=>[...new Set(places.map(p=>p.region))],[places]);
+  const allConcepts=useMemo(()=>{const base=[...CONCEPT_FILTERS];places.forEach(p=>(p.concepts||[]).forEach(c=>{if(!base.includes(c))base.push(c);}));return base;},[places]);
+  const allTypeTags=useMemo(()=>{const base=[...TYPE_FILTERS];const existing=new Set(TYPE_FILTERS.map(f=>f.key));places.forEach(p=>(p.tags||[]).forEach(t=>{if(!existing.has(t)){existing.add(t);base.push({key:t,label:t});}}));return base;},[places]);
+  const filtered=useMemo(()=>places.filter(p=>{const r=activeRegion==="전체지역"||p.region===activeRegion;const t=activeType==="all"||p.tags?.includes(activeType);const c=activeConcept==="all"||(p.concepts||[]).includes(activeConcept);return r&&t&&c;}),[places,activeRegion,activeType,activeConcept]);
+  const grouped=useMemo(()=>{const g={};filtered.forEach(p=>{if(!g[p.region])g[p.region]=[];g[p.region].push(p);});return g;},[filtered]);
 
-  const resetAdd = () => {
-    setManName(""); setManAddr(""); setManRegion(""); setManNote(""); setManTags([]); setManConceptList([]); setManConceptInput("");
-    setAiName(""); setAiAddr(""); setAiNote(""); setAiPreview(null); setAiError("");
-    setView("list");
-  };
-
-  const uniqueRegions = useMemo(()=>[...new Set(places.map(p=>p.region))],[places]);
-  const allConcepts = useMemo(()=>{
-    const base = [...CONCEPT_FILTERS];
-    places.forEach(p=>(p.concepts||[]).forEach(c=>{ if(!base.includes(c)) base.push(c); }));
-    return base;
-  },[places]);
-
-  const allTypeTags = useMemo(()=>{
-    const base = [...TYPE_FILTERS];
-    const existing = new Set(TYPE_FILTERS.map(f=>f.key));
-    places.forEach(p=>(p.tags||[]).forEach(t=>{
-      if(!existing.has(t)){ existing.add(t); base.push({key:t, label:t}); }
-    }));
-    return base;
-  },[places]);
-  const filtered = useMemo(()=>places.filter(p=>{
-    const r = activeRegion==="전체지역"||p.region===activeRegion;
-    const t = activeType==="all"||p.tags?.includes(activeType);
-    const c = activeConcept==="all"||(p.concepts||[]).includes(activeConcept);
-    return r&&t&&c;
-  }),[places,activeRegion,activeType,activeConcept]);
-  const grouped = useMemo(()=>{ const g={}; filtered.forEach(p=>{ if(!g[p.region])g[p.region]=[]; g[p.region].push(p); }); return g; },[filtered]);
-
-
-
-  const s = { fontFamily:"'Apple SD Gothic Neo','Noto Sans KR',sans-serif", background:"#FAFAFA", minHeight:"100dvh", maxWidth:480, margin:"0 auto", position:"relative" };
-  const headerStyle = {background:"#fff",padding:"52px 20px 12px",borderBottom:"1px solid #F3F4F6",position:"sticky",top:0,zIndex:10};
+  const s={fontFamily:"'Apple SD Gothic Neo','Noto Sans KR',sans-serif",background:"#FAFAFA",minHeight:"100dvh",maxWidth:480,margin:"0 auto",position:"relative"};
+  const headerStyle={background:"#fff",padding:"52px 20px 12px",borderBottom:"1px solid #F3F4F6",position:"sticky",top:0,zIndex:10};
 
   // ── 추가 화면
-  if (view==="add") return (
+  if(view==="add") return (
     <div style={s}>
-      <div style={{...headerStyle, paddingBottom:0}}>
+      <div style={{...headerStyle,paddingBottom:0}}>
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
           <button onClick={resetAdd} style={{background:"none",border:"none",fontSize:22,cursor:"pointer",color:"#374151",padding:0,lineHeight:1}}>←</button>
           <span style={{fontSize:17,fontWeight:700,color:"#111"}}>새 장소 추가</span>
         </div>
-        {/* 탭 */}
         <div style={{display:"flex",gap:0,borderBottom:"1px solid #F3F4F6"}}>
-          <button onClick={()=>setAddTab("manual")} style={{flex:1,padding:"10px 0",border:"none",background:"none",fontSize:14,fontWeight:addTab==="manual"?700:400,color:addTab==="manual"?"#111":"#9CA3AF",borderBottom:addTab==="manual"?"2px solid #111":"2px solid transparent",cursor:"pointer"}}>
-            직접 추가하기
-          </button>
+          <button onClick={()=>setAddTab("manual")} style={{flex:1,padding:"10px 0",border:"none",background:"none",fontSize:14,fontWeight:addTab==="manual"?700:400,color:addTab==="manual"?"#111":"#9CA3AF",borderBottom:addTab==="manual"?"2px solid #111":"2px solid transparent",cursor:"pointer"}}>직접 추가하기</button>
           <button onClick={()=>setAddTab("ai")} style={{flex:1,padding:"10px 0",border:"none",background:"none",fontSize:14,fontWeight:addTab==="ai"?700:400,color:addTab==="ai"?"#111":"#9CA3AF",borderBottom:addTab==="ai"?"2px solid #111":"2px solid transparent",cursor:"pointer",position:"relative"}}>
             자동 추가하기
-            <span style={{position:"absolute",top:-2,right:"calc(50% - 42px)",background:"linear-gradient(135deg,#667EEA,#764BA2)",color:"#fff",fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:"0 4px 4px 0",transform:"skewX(-8deg)",letterSpacing:"0.05em"}}>PREMIUM</span>
+            <span style={{position:"absolute",top:-2,right:"calc(50% - 42px)",background:"linear-gradient(135deg,#667EEA,#764BA2)",color:"#fff",fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:"0 4px 4px 0",transform:"skewX(-8deg)"}}>PREMIUM</span>
           </button>
         </div>
       </div>
-
       <div style={{padding:"20px 20px 60px"}}>
-        {/* 직접 추가 탭 */}
-        {addTab==="manual" && (
+        {addTab==="manual"&&(
           <div style={{background:"#fff",borderRadius:16,padding:20,boxShadow:"0 1px 6px rgba(0,0,0,0.06)"}}>
             <Input label="가게 이름" value={manName} onChange={setManName} placeholder="예) 트릴로지 합정" required/>
             <Input label="지역" value={manRegion} onChange={setManRegion} placeholder="예) 합정, 속초, 부산 해운대" required/>
@@ -341,75 +259,43 @@ isNaeng은 평양냉면 전문점이면 true.` }]
               <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:6}}>태그</label>
               <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>
                 {manTags.filter(t=>!TAG_OPTIONS.includes(t)).map(t=>(
-                  <span key={t} style={{fontSize:12,padding:"4px 12px",borderRadius:999,background:"#E0F2FE",color:"#0369A1",display:"flex",alignItems:"center",gap:4}}>
-                    {t}
-                    <button onClick={()=>setManTags(prev=>prev.filter(x=>x!==t))} style={{background:"none",border:"none",color:"#0369A1",cursor:"pointer",fontSize:14,padding:0,lineHeight:1}}>×</button>
-                  </span>
+                  <span key={t} style={{fontSize:12,padding:"4px 12px",borderRadius:999,background:"#E0F2FE",color:"#0369A1",display:"flex",alignItems:"center",gap:4}}>{t}<button onClick={()=>setManTags(prev=>prev.filter(x=>x!==t))} style={{background:"none",border:"none",color:"#0369A1",cursor:"pointer",fontSize:14,padding:0,lineHeight:1}}>×</button></span>
                 ))}
-                {TAG_OPTIONS.map(t=>{
-                  const c=TAG_COLORS[t];
-                  const active=manTags.includes(t);
-                  return (
-                    <button key={t} onClick={()=>setManTags(prev=>prev.includes(t)?prev.filter(x=>x!==t):[...prev,t])}
-                      style={{fontSize:12,padding:"4px 12px",borderRadius:999,border:active?"none":"1px solid #E5E7EB",background:active&&c?c[0]:"#fff",color:active&&c?c[1]:"#6B7280",fontWeight:active?600:400,cursor:"pointer"}}>
-                      {TL[t]||t}
-                    </button>
-                  );
-                })}
+                {TAG_OPTIONS.map(t=>{const c=TAG_COLORS[t];const active=manTags.includes(t);return(
+                  <button key={t} onClick={()=>setManTags(prev=>prev.includes(t)?prev.filter(x=>x!==t):[...prev,t])} style={{fontSize:12,padding:"4px 12px",borderRadius:999,border:active?"none":"1px solid #E5E7EB",background:active&&c?c[0]:"#fff",color:active&&c?c[1]:"#6B7280",fontWeight:active?600:400,cursor:"pointer"}}>{TL[t]||t}</button>
+                );})}
               </div>
               <div style={{display:"flex",gap:6}}>
-                <input value={manTagInput} onChange={e=>setManTagInput(e.target.value)}
-                  onKeyDown={e=>{if(e.key==="Enter"&&manTagInput.trim()){e.preventDefault();setManTags(prev=>[...prev,manTagInput.trim()]);setManTagInput("");}}}
-                  placeholder="새 태그 직접 입력 후 Enter"
-                  style={{flex:1,padding:"9px 12px",borderRadius:10,border:"1.5px solid #E5E7EB",fontSize:13,outline:"none",fontFamily:"inherit"}}/>
-                <button onClick={()=>{if(manTagInput.trim()){setManTags(prev=>[...prev,manTagInput.trim()]);setManTagInput("");}}}
-                  style={{padding:"0 14px",borderRadius:10,background:"#111",color:"#fff",border:"none",cursor:"pointer",fontSize:18}}>+</button>
+                <input value={manTagInput} onChange={e=>setManTagInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&manTagInput.trim()){e.preventDefault();setManTags(prev=>[...prev,manTagInput.trim()]);setManTagInput("");}}} placeholder="새 태그 직접 입력 후 Enter" style={{flex:1,padding:"9px 12px",borderRadius:10,border:"1.5px solid #E5E7EB",fontSize:13,outline:"none",fontFamily:"inherit"}}/>
+                <button onClick={()=>{if(manTagInput.trim()){setManTags(prev=>[...prev,manTagInput.trim()]);setManTagInput("");}}} style={{padding:"0 14px",borderRadius:10,background:"#111",color:"#fff",border:"none",cursor:"pointer",fontSize:18}}>+</button>
               </div>
             </div>
             <div style={{marginBottom:14}}>
               <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:6}}>컨셉 키워드</label>
               <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:8}}>
-                {manConceptList.map(c=>(
-                  <span key={c} style={{fontSize:12,padding:"3px 10px",borderRadius:999,background:"#111",color:"#fff",display:"flex",alignItems:"center",gap:4}}>
-                    {c}
-                    <button onClick={()=>setManConceptList(prev=>prev.filter(x=>x!==c))} style={{background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:14,padding:0,lineHeight:1}}>×</button>
-                  </span>
-                ))}
+                {manConceptList.map(c=>(<span key={c} style={{fontSize:12,padding:"3px 10px",borderRadius:999,background:"#111",color:"#fff",display:"flex",alignItems:"center",gap:4}}>{c}<button onClick={()=>setManConceptList(prev=>prev.filter(x=>x!==c))} style={{background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:14,padding:0,lineHeight:1}}>×</button></span>))}
               </div>
               <div style={{display:"flex",gap:6}}>
-                <input value={manConceptInput} onChange={e=>setManConceptInput(e.target.value)}
-                  onKeyDown={e=>{if((e.key==="Enter"||e.key===",")&&manConceptInput.trim()){e.preventDefault();setManConceptList(prev=>[...prev,manConceptInput.trim()]);setManConceptInput("");}}}
-                  placeholder="키워드 입력 후 Enter"
-                  style={{flex:1,padding:"11px 14px",borderRadius:10,border:"1.5px solid #E5E7EB",fontSize:14,outline:"none",fontFamily:"inherit"}}/>
-                <button onClick={()=>{if(manConceptInput.trim()){setManConceptList(prev=>[...prev,manConceptInput.trim()]);setManConceptInput("");}}}
-                  style={{padding:"0 14px",borderRadius:10,background:"#111",color:"#fff",border:"none",cursor:"pointer",fontSize:18}}>+</button>
+                <input value={manConceptInput} onChange={e=>setManConceptInput(e.target.value)} onKeyDown={e=>{if((e.key==="Enter"||e.key===",")&&manConceptInput.trim()){e.preventDefault();setManConceptList(prev=>[...prev,manConceptInput.trim()]);setManConceptInput("");}}} placeholder="키워드 입력 후 Enter" style={{flex:1,padding:"11px 14px",borderRadius:10,border:"1.5px solid #E5E7EB",fontSize:14,outline:"none",fontFamily:"inherit"}}/>
+                <button onClick={()=>{if(manConceptInput.trim()){setManConceptList(prev=>[...prev,manConceptInput.trim()]);setManConceptInput("");}}} style={{padding:"0 14px",borderRadius:10,background:"#111",color:"#fff",border:"none",cursor:"pointer",fontSize:18}}>+</button>
               </div>
             </div>
             <Input label="메모" value={manNote} onChange={setManNote} placeholder="예) 월 휴무, 웨이팅 있음"/>
-            <button onClick={confirmManual}
-              style={{width:"100%",padding:"14px",borderRadius:12,border:"none",background:"#111",color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer"}}>
-              추가하기 ✓
-            </button>
+            <button onClick={confirmManual} style={{width:"100%",padding:"14px",borderRadius:12,border:"none",background:"#111",color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer"}}>추가하기 ✓</button>
           </div>
         )}
-
-        {/* AI 자동 탭 */}
-        {addTab==="ai" && (
+        {addTab==="ai"&&(
           <div>
-            <div style={{background:"linear-gradient(135deg,#667EEA15,#764BA215)",border:"1px solid #667EEA30",borderRadius:12,padding:"12px 16px",marginBottom:16,fontSize:13,color:"#667EEA",fontWeight:500}}>
-              ✨ 가게 이름만 입력하면 AI가 지역·장르·컨셉을 자동으로 분석해요
-            </div>
+            <div style={{background:"linear-gradient(135deg,#667EEA15,#764BA215)",border:"1px solid #667EEA30",borderRadius:12,padding:"12px 16px",marginBottom:16,fontSize:13,color:"#667EEA",fontWeight:500}}>✨ 가게 이름만 입력하면 AI가 지역·장르·컨셉을 자동으로 분석해요</div>
             <div style={{background:"#fff",borderRadius:16,padding:20,boxShadow:"0 1px 6px rgba(0,0,0,0.06)"}}>
               <Input label="가게 이름" value={aiName} onChange={v=>{setAiName(v);setAiPreview(null);}} placeholder="예) 트릴로지 합정" required/>
               <Input label="주소" value={aiAddr} onChange={setAiAddr} placeholder="예) 서울 마포구 희우정로 19"/>
               <Input label="메모" value={aiNote} onChange={setAiNote} placeholder="예) 월 휴무, 웨이팅 있음"/>
-              <button onClick={analyzeWithAI} disabled={aiLoading||!aiName.trim()}
-                style={{width:"100%",padding:"14px",borderRadius:12,border:"none",background:aiName.trim()?"linear-gradient(135deg,#667EEA,#764BA2)":"#E5E7EB",color:aiName.trim()?"#fff":"#9CA3AF",fontSize:15,fontWeight:700,cursor:aiName.trim()?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginBottom:aiError?10:0}}>
+              <button onClick={analyzeWithAI} disabled={aiLoading||!aiName.trim()} style={{width:"100%",padding:"14px",borderRadius:12,border:"none",background:aiName.trim()?"linear-gradient(135deg,#667EEA,#764BA2)":"#E5E7EB",color:aiName.trim()?"#fff":"#9CA3AF",fontSize:15,fontWeight:700,cursor:aiName.trim()?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginBottom:aiError?10:0}}>
                 {aiLoading?<><span style={{display:"inline-block",width:16,height:16,border:"2px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>AI 분석 중...</>:"✨ AI로 자동 분석하기"}
               </button>
               {aiError&&<div style={{marginTop:10,fontSize:13,color:"#EF4444",textAlign:"center"}}>{aiError}</div>}
             </div>
-
             {aiPreview&&(
               <div style={{background:"#fff",borderRadius:16,padding:20,boxShadow:"0 1px 6px rgba(0,0,0,0.06)",border:"2px solid #667EEA",marginTop:16}}>
                 <div style={{fontSize:13,fontWeight:700,color:"#667EEA",marginBottom:14}}>✨ AI 분석 결과</div>
@@ -427,51 +313,40 @@ isNaeng은 평양냉면 전문점이면 true.` }]
   );
 
   // ── 상세 화면
-  if (view==="detail"&&selectedPlace) {
-    const p=selectedPlace;
-    return (
-      <div style={s}>
-        <div style={{...headerStyle,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <div style={{display:"flex",alignItems:"center",gap:12}}>
-            <button onClick={()=>setView("list")} style={{background:"none",border:"none",fontSize:22,cursor:"pointer",color:"#374151",padding:0}}>←</button>
-            <span style={{fontSize:17,fontWeight:700,color:"#111"}}>{p.name}</span>
-          </div>
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={()=>toggleVisited(p.id)}
-              style={{background:p.visited?"#DCFCE7":"none",border:"1px solid",borderColor:p.visited?"#86EFAC":"#E5E7EB",fontSize:13,color:p.visited?"#166534":"#374151",cursor:"pointer",padding:"4px 12px",borderRadius:8,fontWeight:p.visited?600:400}}>
-              {p.visited?"✓ 방문":"방문"}
-            </button>
-            <button onClick={()=>startEdit(p)} style={{background:"none",border:"1px solid #E5E7EB",fontSize:13,color:"#374151",cursor:"pointer",padding:"4px 12px",borderRadius:8}}>수정</button>
-            <button onClick={()=>deletePlace(p.id)} style={{background:"none",border:"none",fontSize:13,color:"#EF4444",cursor:"pointer",padding:"4px 8px"}}>삭제</button>
-          </div>
-        </div>
-        <div style={{padding:"20px"}}>
-          <div style={{background:"#fff",borderRadius:16,padding:20,boxShadow:"0 1px 6px rgba(0,0,0,0.06)",marginBottom:14}}>
-            <div style={{fontSize:12,color:"#9CA3AF",marginBottom:4}}>주소</div>
-            <div style={{fontSize:14,color:"#374151",lineHeight:1.6,marginBottom:p.note?12:0}}>{p.addr}</div>
-            {p.note&&<><div style={{fontSize:12,color:"#9CA3AF",marginBottom:4,marginTop:12}}>메모</div><div style={{fontSize:14,color:"#374151",lineHeight:1.6}}>{p.note}</div></>}
-            <div style={{height:1,background:"#F3F4F6",margin:"16px 0"}}/>
-            <div style={{fontSize:12,color:"#9CA3AF",marginBottom:6}}>장르</div>
-            <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:14}}>{p.tags?.map(t=><Tag key={t} tag={t}/>)}</div>
-            {p.concepts?.length>0&&<><div style={{fontSize:12,color:"#9CA3AF",marginBottom:6}}>컨셉</div><div style={{display:"flex",flexWrap:"wrap",gap:4}}>{p.concepts.map(c=><Chip key={c} label={c}/>)}</div></>}
-          </div>
-          <button onClick={()=>window.open("https://map.naver.com/p/search/"+encodeURIComponent(p.search||p.name),"_blank")}
-            style={{width:"100%",padding:"14px",borderRadius:12,border:"none",background:"#03C75A",color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-            🗺 네이버 지도에서 보기
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ── 수정 화면
-  if (view==="edit"&&editPlace) return (
+  if(view==="detail"&&selectedPlace){const p=selectedPlace;return(
     <div style={s}>
       <div style={{...headerStyle,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
-          <button onClick={()=>setView("detail")} style={{background:"none",border:"none",fontSize:22,cursor:"pointer",color:"#374151",padding:0}}>←</button>
-          <span style={{fontSize:17,fontWeight:700,color:"#111"}}>장소 수정</span>
+          <button onClick={()=>setView("list")} style={{background:"none",border:"none",fontSize:22,cursor:"pointer",color:"#374151",padding:0}}>←</button>
+          <span style={{fontSize:17,fontWeight:700,color:"#111"}}>{p.name}</span>
         </div>
+        <div style={{display:"flex",gap:6}}>
+          <button onClick={()=>toggleVisited(p.id)} style={{background:p.visited?"#DCFCE7":"none",border:"1px solid",borderColor:p.visited?"#86EFAC":"#E5E7EB",fontSize:12,color:p.visited?"#166534":"#374151",cursor:"pointer",padding:"4px 10px",borderRadius:8,fontWeight:p.visited?600:400}}>{p.visited?"✓ 방문":"방문"}</button>
+          <button onClick={()=>startEdit(p)} style={{background:"none",border:"1px solid #E5E7EB",fontSize:12,color:"#374151",cursor:"pointer",padding:"4px 10px",borderRadius:8}}>수정</button>
+          <button onClick={()=>deletePlace(p.id)} style={{background:"none",border:"none",fontSize:12,color:"#EF4444",cursor:"pointer",padding:"4px 6px"}}>삭제</button>
+        </div>
+      </div>
+      <div style={{padding:"20px 20px 100px"}}>
+        <div style={{background:"#fff",borderRadius:16,padding:20,boxShadow:"0 1px 6px rgba(0,0,0,0.06)",marginBottom:14}}>
+          <div style={{fontSize:12,color:"#9CA3AF",marginBottom:4}}>주소</div>
+          <div style={{fontSize:14,color:"#374151",lineHeight:1.6,marginBottom:p.note?12:0}}>{p.addr}</div>
+          {p.note&&<><div style={{fontSize:12,color:"#9CA3AF",marginBottom:4,marginTop:12}}>메모</div><div style={{fontSize:14,color:"#374151",lineHeight:1.6}}>{p.note}</div></>}
+          <div style={{height:1,background:"#F3F4F6",margin:"16px 0"}}/>
+          <div style={{fontSize:12,color:"#9CA3AF",marginBottom:6}}>장르</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:14}}>{p.tags?.map(t=><Tag key={t} tag={t}/>)}</div>
+          {p.concepts?.length>0&&<><div style={{fontSize:12,color:"#9CA3AF",marginBottom:6}}>컨셉</div><div style={{display:"flex",flexWrap:"wrap",gap:4}}>{p.concepts.map(c=><Chip key={c} label={c}/>)}</div></>}
+        </div>
+        <button onClick={()=>window.open("https://map.naver.com/p/search/"+encodeURIComponent(p.search||p.name),"_blank")} style={{width:"100%",padding:"14px",borderRadius:12,border:"none",background:"#03C75A",color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>🗺 네이버 지도에서 보기</button>
+      </div>
+    </div>
+  );}
+
+  // ── 수정 화면
+  if(view==="edit"&&editPlace) return(
+    <div style={s}>
+      <div style={{...headerStyle,display:"flex",alignItems:"center",gap:12}}>
+        <button onClick={()=>setView("detail")} style={{background:"none",border:"none",fontSize:22,cursor:"pointer",color:"#374151",padding:0}}>←</button>
+        <span style={{fontSize:17,fontWeight:700,color:"#111"}}>장소 수정</span>
       </div>
       <div style={{padding:"20px 20px 60px"}}>
         <div style={{background:"#fff",borderRadius:16,padding:20,boxShadow:"0 1px 6px rgba(0,0,0,0.06)"}}>
@@ -481,58 +356,84 @@ isNaeng은 평양냉면 전문점이면 true.` }]
           <div style={{marginBottom:14}}>
             <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:6}}>태그</label>
             <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>
-              {editTags.filter(t=>!TAG_OPTIONS.includes(t)).map(t=>(
-                <span key={t} style={{fontSize:12,padding:"4px 12px",borderRadius:999,background:"#E0F2FE",color:"#0369A1",display:"flex",alignItems:"center",gap:4}}>
-                  {t}
-                  <button onClick={()=>setEditTags(prev=>prev.filter(x=>x!==t))} style={{background:"none",border:"none",color:"#0369A1",cursor:"pointer",fontSize:14,padding:0,lineHeight:1}}>×</button>
-                </span>
-              ))}
-              {TAG_OPTIONS.map(t=>{
-                const c=TAG_COLORS[t]; const active=editTags.includes(t);
-                return <button key={t} onClick={()=>setEditTags(prev=>prev.includes(t)?prev.filter(x=>x!==t):[...prev,t])}
-                  style={{fontSize:12,padding:"4px 12px",borderRadius:999,border:active?"none":"1px solid #E5E7EB",background:active&&c?c[0]:"#fff",color:active&&c?c[1]:"#6B7280",fontWeight:active?600:400,cursor:"pointer"}}>{TL[t]||t}</button>;
-              })}
+              {editTags.filter(t=>!TAG_OPTIONS.includes(t)).map(t=>(<span key={t} style={{fontSize:12,padding:"4px 12px",borderRadius:999,background:"#E0F2FE",color:"#0369A1",display:"flex",alignItems:"center",gap:4}}>{t}<button onClick={()=>setEditTags(prev=>prev.filter(x=>x!==t))} style={{background:"none",border:"none",color:"#0369A1",cursor:"pointer",fontSize:14,padding:0,lineHeight:1}}>×</button></span>))}
+              {TAG_OPTIONS.map(t=>{const c=TAG_COLORS[t];const active=editTags.includes(t);return <button key={t} onClick={()=>setEditTags(prev=>prev.includes(t)?prev.filter(x=>x!==t):[...prev,t])} style={{fontSize:12,padding:"4px 12px",borderRadius:999,border:active?"none":"1px solid #E5E7EB",background:active&&c?c[0]:"#fff",color:active&&c?c[1]:"#6B7280",fontWeight:active?600:400,cursor:"pointer"}}>{TL[t]||t}</button>;})}
             </div>
             <div style={{display:"flex",gap:6}}>
-              <input value={editTagInput} onChange={e=>setEditTagInput(e.target.value)}
-                onKeyDown={e=>{if(e.key==="Enter"&&editTagInput.trim()){e.preventDefault();setEditTags(prev=>[...prev,editTagInput.trim()]);setEditTagInput("");}}}
-                placeholder="새 태그 직접 입력 후 Enter"
-                style={{flex:1,padding:"9px 12px",borderRadius:10,border:"1.5px solid #E5E7EB",fontSize:13,outline:"none",fontFamily:"inherit"}}/>
-              <button onClick={()=>{if(editTagInput.trim()){setEditTags(prev=>[...prev,editTagInput.trim()]);setEditTagInput("");}}}
-                style={{padding:"0 14px",borderRadius:10,background:"#111",color:"#fff",border:"none",cursor:"pointer",fontSize:18}}>+</button>
+              <input value={editTagInput} onChange={e=>setEditTagInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&editTagInput.trim()){e.preventDefault();setEditTags(prev=>[...prev,editTagInput.trim()]);setEditTagInput("");}}} placeholder="새 태그 직접 입력 후 Enter" style={{flex:1,padding:"9px 12px",borderRadius:10,border:"1.5px solid #E5E7EB",fontSize:13,outline:"none",fontFamily:"inherit"}}/>
+              <button onClick={()=>{if(editTagInput.trim()){setEditTags(prev=>[...prev,editTagInput.trim()]);setEditTagInput("");}}} style={{padding:"0 14px",borderRadius:10,background:"#111",color:"#fff",border:"none",cursor:"pointer",fontSize:18}}>+</button>
             </div>
           </div>
           <div style={{marginBottom:14}}>
             <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:6}}>컨셉 키워드</label>
             <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:8}}>
-              {editConcepts.map(c=>(
-                <span key={c} style={{fontSize:12,padding:"3px 10px",borderRadius:999,background:"#111",color:"#fff",display:"flex",alignItems:"center",gap:4}}>
-                  {c}
-                  <button onClick={()=>setEditConcepts(prev=>prev.filter(x=>x!==c))} style={{background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:14,padding:0,lineHeight:1}}>×</button>
-                </span>
-              ))}
+              {editConcepts.map(c=>(<span key={c} style={{fontSize:12,padding:"3px 10px",borderRadius:999,background:"#111",color:"#fff",display:"flex",alignItems:"center",gap:4}}>{c}<button onClick={()=>setEditConcepts(prev=>prev.filter(x=>x!==c))} style={{background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:14,padding:0,lineHeight:1}}>×</button></span>))}
             </div>
             <div style={{display:"flex",gap:6}}>
-              <input value={editConceptInput} onChange={e=>setEditConceptInput(e.target.value)}
-                onKeyDown={e=>{if((e.key==="Enter"||e.key===",")&&editConceptInput.trim()){e.preventDefault();setEditConcepts(prev=>[...prev,editConceptInput.trim()]);setEditConceptInput("");}}}
-                placeholder="키워드 입력 후 Enter"
-                style={{flex:1,padding:"11px 14px",borderRadius:10,border:"1.5px solid #E5E7EB",fontSize:14,outline:"none",fontFamily:"inherit"}}/>
-              <button onClick={()=>{if(editConceptInput.trim()){setEditConcepts(prev=>[...prev,editConceptInput.trim()]);setEditConceptInput("");}}}
-                style={{padding:"0 14px",borderRadius:10,background:"#111",color:"#fff",border:"none",cursor:"pointer",fontSize:18}}>+</button>
+              <input value={editConceptInput} onChange={e=>setEditConceptInput(e.target.value)} onKeyDown={e=>{if((e.key==="Enter"||e.key===",")&&editConceptInput.trim()){e.preventDefault();setEditConcepts(prev=>[...prev,editConceptInput.trim()]);setEditConceptInput("");}}} placeholder="키워드 입력 후 Enter" style={{flex:1,padding:"11px 14px",borderRadius:10,border:"1.5px solid #E5E7EB",fontSize:14,outline:"none",fontFamily:"inherit"}}/>
+              <button onClick={()=>{if(editConceptInput.trim()){setEditConcepts(prev=>[...prev,editConceptInput.trim()]);setEditConceptInput("");}}} style={{padding:"0 14px",borderRadius:10,background:"#111",color:"#fff",border:"none",cursor:"pointer",fontSize:18}}>+</button>
             </div>
           </div>
           <Input label="메모" value={editNote} onChange={setEditNote} placeholder="예) 월 휴무, 웨이팅 있음"/>
-          <button onClick={confirmEdit}
-            style={{width:"100%",padding:"14px",borderRadius:12,border:"none",background:"#111",color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer"}}>
-            수정 완료 ✓
-          </button>
+          <button onClick={confirmEdit} style={{width:"100%",padding:"14px",borderRadius:12,border:"none",background:"#111",color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer"}}>수정 완료 ✓</button>
         </div>
       </div>
     </div>
   );
 
+  // ── 관리자 화면
+  if(tab==="admin") return(
+    <div style={s}>
+      <div style={{...headerStyle}}>
+        <div style={{fontSize:20,fontWeight:800,color:"#111"}}>⚙️ 관리자</div>
+      </div>
+      <div style={{padding:"20px 20px 100px"}}>
+        {!adminAuthed?(
+          <div style={{background:"#fff",borderRadius:16,padding:24,boxShadow:"0 1px 6px rgba(0,0,0,0.06)"}}>
+            <div style={{fontSize:15,fontWeight:600,color:"#111",marginBottom:6}}>🔒 관리자 인증</div>
+            <div style={{fontSize:13,color:"#9CA3AF",marginBottom:16}}>비밀번호를 입력해주세요</div>
+            <input type="password" value={adminPw} onChange={e=>setAdminPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleAdminLogin()} placeholder="비밀번호"
+              style={{width:"100%",padding:"12px 14px",borderRadius:10,border:`1.5px solid ${adminPwError?"#EF4444":"#E5E7EB"}`,fontSize:15,outline:"none",boxSizing:"border-box",fontFamily:"inherit",marginBottom:8}}/>
+            {adminPwError&&<div style={{fontSize:12,color:"#EF4444",marginBottom:8}}>비밀번호가 틀렸어요</div>}
+            <button onClick={handleAdminLogin} style={{width:"100%",padding:"13px",borderRadius:12,border:"none",background:"#111",color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer"}}>확인</button>
+          </div>
+        ):(
+          <div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+              <div style={{fontSize:16,fontWeight:700,color:"#111"}}>📱 접속 기록</div>
+              <button onClick={loadAccessLogs} style={{background:"none",border:"1px solid #E5E7EB",padding:"6px 12px",borderRadius:8,fontSize:12,color:"#6B7280",cursor:"pointer"}}>새로고침</button>
+            </div>
+            {logsLoading?(
+              <div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>불러오는 중...</div>
+            ):accessLogs.length===0?(
+              <div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>접속 기록이 없어요</div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {accessLogs.sort((a,b)=>new Date(b.lastAccess)-new Date(a.lastAccess)).map((log,i)=>{
+                  const date=new Date(log.lastAccess);
+                  const diff=Math.floor((new Date()-date)/1000/60);
+                  const timeStr=diff<1?"방금 전":diff<60?`${diff}분 전`:diff<1440?`${Math.floor(diff/60)}시간 전`:`${Math.floor(diff/1440)}일 전`;
+                  return(
+                    <div key={i} style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:"1px solid #F3F4F6"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                        <span style={{fontSize:14,fontWeight:600,color:"#111"}}>📱 기기 {i+1}</span>
+                        <span style={{fontSize:12,background:diff<60?"#DCFCE7":"#F3F4F6",color:diff<60?"#166534":"#6B7280",padding:"2px 8px",borderRadius:999,fontWeight:500}}>{timeStr}</span>
+                      </div>
+                      <div style={{fontSize:12,color:"#9CA3AF"}}>{date.toLocaleString("ko-KR")}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      <BottomTab tab={tab} setTab={setTab}/>
+    </div>
+  );
+
   // ── 메인 리스트
-  return (
+  return(
     <div style={s}>
       <div style={{background:"#fff",padding:"52px 20px 10px",borderBottom:"1px solid #F3F4F6",position:"sticky",top:0,zIndex:10}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
@@ -547,30 +448,24 @@ isNaeng은 평양냉면 전문점이면 true.` }]
         </div>
         <div style={{overflowX:"auto",display:"flex",gap:6,paddingBottom:8,marginBottom:4}}>{["전체지역",...uniqueRegions].map(r=><FBtn key={r} label={r==="전체지역"?"전체":r} active={activeRegion===r} onClick={()=>setActiveRegion(r)}/>)}</div>
         <div style={{overflowX:"auto",display:"flex",gap:6,paddingBottom:8,marginBottom:4}}>{allTypeTags.map(f=><FBtn key={f.key} label={f.label} active={activeType===f.key} onClick={()=>setActiveType(f.key)}/>)}</div>
-        {/* 컨셉 필터 드롭다운 */}
         <div style={{marginBottom:4}}>
-          <button onClick={()=>{setConceptOpen(o=>!o);setConceptSearch("");}}
-            style={{display:"flex",alignItems:"center",gap:6,padding:"7px 14px",borderRadius:999,border:"1px solid #E5E7EB",background:activeConcept!=="all"?"#111":"#fff",color:activeConcept!=="all"?"#fff":"#6B7280",fontSize:12,fontWeight:activeConcept!=="all"?600:400,cursor:"pointer"}}>
+          <button onClick={()=>{setConceptOpen(o=>!o);setConceptSearch("");}} style={{display:"flex",alignItems:"center",gap:6,padding:"7px 14px",borderRadius:999,border:"1px solid #E5E7EB",background:activeConcept!=="all"?"#111":"#fff",color:activeConcept!=="all"?"#fff":"#6B7280",fontSize:12,fontWeight:activeConcept!=="all"?600:400,cursor:"pointer"}}>
             {activeConcept==="all"?"🎨 컨셉·분위기":activeConcept}
-            <span style={{fontSize:10,transition:"transform 0.2s",display:"inline-block",transform:conceptOpen?"rotate(180deg)":"rotate(0deg)"}}>▼</span>
+            <span style={{fontSize:10,display:"inline-block",transform:conceptOpen?"rotate(180deg)":"rotate(0deg)"}}>▼</span>
           </button>
           {conceptOpen&&(
             <div style={{position:"absolute",left:16,right:16,background:"#fff",borderRadius:14,boxShadow:"0 4px 20px rgba(0,0,0,0.12)",zIndex:50,padding:12,marginTop:6}}>
-              <input value={conceptSearch} onChange={e=>setConceptSearch(e.target.value)} placeholder="검색..."
-                style={{width:"100%",padding:"9px 12px",borderRadius:8,border:"1px solid #E5E7EB",fontSize:13,outline:"none",boxSizing:"border-box",marginBottom:10,fontFamily:"inherit"}}/>
+              <input value={conceptSearch} onChange={e=>setConceptSearch(e.target.value)} placeholder="검색..." style={{width:"100%",padding:"9px 12px",borderRadius:8,border:"1px solid #E5E7EB",fontSize:13,outline:"none",boxSizing:"border-box",marginBottom:10,fontFamily:"inherit"}}/>
               <div style={{display:"flex",flexWrap:"wrap",gap:6,maxHeight:200,overflowY:"auto"}}>
-                <button onClick={()=>{setActiveConcept("all");setConceptOpen(false);}}
-                  style={{fontSize:12,padding:"5px 12px",borderRadius:999,border:"none",background:activeConcept==="all"?"#111":"#F3F4F6",color:activeConcept==="all"?"#fff":"#374151",cursor:"pointer",fontWeight:activeConcept==="all"?600:400}}>전체</button>
+                <button onClick={()=>{setActiveConcept("all");setConceptOpen(false);}} style={{fontSize:12,padding:"5px 12px",borderRadius:999,border:"none",background:activeConcept==="all"?"#111":"#F3F4F6",color:activeConcept==="all"?"#fff":"#374151",cursor:"pointer",fontWeight:activeConcept==="all"?600:400}}>전체</button>
                 {allConcepts.filter(c=>c.includes(conceptSearch)).map(c=>(
-                  <button key={c} onClick={()=>{setActiveConcept(c);setConceptOpen(false);}}
-                    style={{fontSize:12,padding:"5px 12px",borderRadius:999,border:"none",background:activeConcept===c?"#111":"#F3F4F6",color:activeConcept===c?"#fff":"#374151",cursor:"pointer",fontWeight:activeConcept===c?600:400}}>{c}</button>
+                  <button key={c} onClick={()=>{setActiveConcept(c);setConceptOpen(false);}} style={{fontSize:12,padding:"5px 12px",borderRadius:999,border:"none",background:activeConcept===c?"#111":"#F3F4F6",color:activeConcept===c?"#fff":"#374151",cursor:"pointer",fontWeight:activeConcept===c?600:400}}>{c}</button>
                 ))}
               </div>
             </div>
           )}
         </div>
       </div>
-
       <div style={{padding:"12px 16px 100px"}}>
         {loading?(
           <div style={{textAlign:"center",padding:"60px 0",color:"#9CA3AF"}}><div style={{fontSize:30,marginBottom:12}}>⏳</div><div style={{fontSize:15}}>불러오는 중...</div></div>
@@ -584,8 +479,7 @@ isNaeng은 평양냉면 전문점이면 true.` }]
               <span style={{fontSize:12,color:"#CBD5E1"}}>{rplaces.length}</span>
             </div>
             {rplaces.map(p=>(
-              <div key={p.id} onClick={()=>{setSelectedPlace(p);setView("detail");}}
-                style={{background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:8,borderLeft:p.숲길?"3px solid #10B981":"none",border:p.숲길?"1px solid #E5E7EB":"1px solid #F3F4F6",cursor:"pointer",WebkitTapHighlightColor:"transparent"}}>
+              <div key={p.id} onClick={()=>{setSelectedPlace(p);setView("detail");}} style={{background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:8,borderLeft:p.숲길?"3px solid #10B981":"none",border:p.숲길?"1px solid #E5E7EB":"1px solid #F3F4F6",cursor:"pointer",WebkitTapHighlightColor:"transparent"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                   <span style={{fontSize:15,fontWeight:600,color:"#111",flex:1}}>{p.name}</span>
                   <div style={{display:"flex",gap:4,alignItems:"center",flexShrink:0,marginLeft:8}}>
@@ -603,6 +497,7 @@ isNaeng은 평양냉면 전문점이면 true.` }]
         ))}
       </div>
       {toast&&<div style={{position:"fixed",bottom:90,left:"50%",transform:"translateX(-50%)",background:"#111",color:"#fff",padding:"10px 20px",borderRadius:20,fontSize:14,fontWeight:500,zIndex:100,whiteSpace:"nowrap",boxShadow:"0 4px 12px rgba(0,0,0,0.2)"}}>{toast}</div>}
+      <BottomTab tab={tab} setTab={setTab}/>
     </div>
   );
 }
