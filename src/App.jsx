@@ -193,7 +193,7 @@ export default function App() {
     return ()=>clearInterval(interval);
   },[tab,adminAuthed,adminTab]);
 
-  useEffect(()=>{ const t=setInterval(()=>setNow(new Date()),10000); return()=>clearInterval(t); },[]);
+  useEffect(()=>{ const t=setInterval(()=>setNow(new Date()),60000); return()=>clearInterval(t); },[]);
 
   useEffect(()=>{
     fetch("/api/places-get").then(r=>r.json()).then(result=>{
