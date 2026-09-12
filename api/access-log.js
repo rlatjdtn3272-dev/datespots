@@ -9,12 +9,13 @@ export default async function handler(req, res) {
 
   if (req.method === "POST") {
     try {
-      const { device } = req.body;
+      const { device, standalone } = req.body;
       const now = new Date().toISOString();
+      const data = JSON.stringify({ lastAccess: now, standalone: !!standalone });
       await fetch(`${url}/pipeline`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify([["SET", `access_${device}`, now]])
+        body: JSON.stringify([["SET", `access_${device}`, data]])
       });
       res.status(200).json({ ok: true });
     } catch (e) {
@@ -37,10 +38,16 @@ export default async function handler(req, res) {
         body: JSON.stringify(pipeline)
       });
       const valData = await valRes.json();
-      const logs = keys.map((k, i) => ({
-        device: k.replace("access_", ""),
-        lastAccess: valData[i]?.result || null
-      }));
+      const logs = keys.map((k, i) => {
+        const raw = valData[i]?.result;
+        // 구버전 호환 (단순 ISO string이면 파싱)
+        try {
+          const parsed = JSON.parse(raw);
+          return { device: k.replace("access_", ""), lastAccess: parsed.lastAccess, standalone: parsed.standalone };
+        } catch {
+          return { device: k.replace("access_", ""), lastAccess: raw, standalone: null };
+        }
+      });
       res.status(200).json({ ok: true, logs });
     } catch (e) {
       res.status(500).json({ ok: false, error: e.message });
