@@ -98,6 +98,16 @@ const BottomTab = ({tab,setTab}) => (
   </div>
 );
 
+// 상태 뱃지 헬퍼
+function getStatusBadge(diffMin) {
+  if (diffMin < 2) return { label:"접속 중", dot:"#22C55E", bg:"#DCFCE7", color:"#166534" };
+  if (diffMin < 60) return { label:"방금 전", dot:"#86EFAC", bg:"#F0FDF4", color:"#15803D" };
+  if (diffMin < 1440) return { label:`${Math.floor(diffMin/60)}시간 전`, dot:"#D1D5DB", bg:"#F3F4F6", color:"#6B7280" };
+  const days = Math.floor(diffMin/1440);
+  if (days >= 7) return { label:`${days}일 전 (미사용)`, dot:"#FCA5A5", bg:"#FEF2F2", color:"#991B1B" };
+  return { label:`${days}일 전`, dot:"#D1D5DB", bg:"#F3F4F6", color:"#6B7280" };
+}
+
 export default function App() {
   const [places, setPlaces] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -134,16 +144,16 @@ export default function App() {
   const [editTags, setEditTags] = useState([]);
   const [editConcepts, setEditConcepts] = useState([]);
   const [editConceptInput, setEditConceptInput] = useState("");
-  // 관리자
   const [adminAuthed, setAdminAuthed] = useState(false);
   const [adminPw, setAdminPw] = useState("");
   const [adminPwError, setAdminPwError] = useState(false);
   const [accessLogs, setAccessLogs] = useState([]);
   const [logsLoading, setLogsLoading] = useState(false);
-  // 위치
   const [locations, setLocations] = useState([]);
   const [locLoading, setLocLoading] = useState(false);
-  const [adminTab, setAdminTab] = useState("access"); // access | location
+  const [adminTab, setAdminTab] = useState("access");
+  // 실시간 시간 갱신용
+  const [now, setNow] = useState(new Date());
 
   const save = useCallback(async (data) => {
     setPlaces(data);
@@ -157,20 +167,38 @@ export default function App() {
 
   const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(""),2500); };
 
-  // 기기 ID 및 접속 로그 + 위치
+  // 기기 ID, 접속 로그, 위치 수집
   useEffect(()=>{
     let deviceId = localStorage.getItem("dd_device_id");
     if(!deviceId){ deviceId="device_"+Math.random().toString(36).slice(2,10); localStorage.setItem("dd_device_id",deviceId); }
-    fetch("/api/access-log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device:deviceId})}).catch(()=>{});
-    // 위치 수집
+
+    const ping = () => {
+      fetch("/api/access-log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device:deviceId})}).catch(()=>{});
+    };
+    ping();
+    // 30초마다 핑 → 접속 중 여부 실시간 확인
+    const pingInterval = setInterval(ping, 30000);
+
     if(navigator.geolocation){
       navigator.geolocation.getCurrentPosition(
-        (pos)=>{
-          fetch("/api/location-set",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device:deviceId,lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:Math.round(pos.coords.accuracy)})}).catch(()=>{});
-        },
-        ()=>{} // 거부하면 무시
+        (pos)=>{ fetch("/api/location-set",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device:deviceId,lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:Math.round(pos.coords.accuracy)})}).catch(()=>{}); },
+        ()=>{}
       );
     }
+    return ()=>clearInterval(pingInterval);
+  },[]);
+
+  // 관리자 탭 열려있을 때 1분마다 자동 새로고침
+  useEffect(()=>{
+    if(tab!=="admin"||!adminAuthed||adminTab!=="access") return;
+    const interval = setInterval(()=>{ loadAccessLogs(); setNow(new Date()); }, 60000);
+    return ()=>clearInterval(interval);
+  },[tab,adminAuthed,adminTab]);
+
+  // 1초마다 now 갱신 (접속중 표시 실시간 업데이트)
+  useEffect(()=>{
+    const t = setInterval(()=>setNow(new Date()), 10000);
+    return ()=>clearInterval(t);
   },[]);
 
   // 서버에서 데이터 불러오기
@@ -224,7 +252,6 @@ export default function App() {
 
   const deletePlace=(id)=>{if(!window.confirm("이 장소를 삭제할까요?"))return;save(places.filter(p=>p.id!==id));setView("list");setSelectedPlace(null);showToast("🗑 삭제됐어요.");};
   const toggleVisited=(id)=>{const updated=places.map(p=>p.id===id?{...p,visited:!p.visited}:p);save(updated);const p=updated.find(x=>x.id===id);setSelectedPlace(p);showToast(p.visited?"✅ 방문 완료로 표시했어요!":"방문 표시를 해제했어요.");};
-
   const resetAdd=()=>{setManName("");setManAddr("");setManRegion("");setManNote("");setManTags([]);setManConceptList([]);setManConceptInput("");setManTagInput("");setAiName("");setAiAddr("");setAiNote("");setAiPreview(null);setAiError("");setView("list");};
 
   const loadAccessLogs=async()=>{
@@ -237,7 +264,6 @@ export default function App() {
     try{const r=await fetch("/api/location-get");const result=await r.json();if(result.ok)setLocations(result.locations);}
     catch{}setLocLoading(false);
   };
-
   const handleAdminLogin=()=>{
     if(adminPw===ADMIN_PW){setAdminAuthed(true);setAdminPwError(false);loadAccessLogs();loadLocations();}
     else{setAdminPwError(true);}
@@ -252,7 +278,6 @@ export default function App() {
   const s={fontFamily:"'Apple SD Gothic Neo','Noto Sans KR',sans-serif",background:"#FAFAFA",minHeight:"100dvh",maxWidth:480,margin:"0 auto",position:"relative"};
   const headerStyle={background:"#fff",padding:"52px 20px 12px",borderBottom:"1px solid #F3F4F6",position:"sticky",top:0,zIndex:10};
 
-  // ── 추가 화면
   if(view==="add") return (
     <div style={s}>
       <div style={{...headerStyle,paddingBottom:0}}>
@@ -277,12 +302,8 @@ export default function App() {
             <div style={{marginBottom:14}}>
               <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:6}}>태그</label>
               <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>
-                {manTags.filter(t=>!TAG_OPTIONS.includes(t)).map(t=>(
-                  <span key={t} style={{fontSize:12,padding:"4px 12px",borderRadius:999,background:"#E0F2FE",color:"#0369A1",display:"flex",alignItems:"center",gap:4}}>{t}<button onClick={()=>setManTags(prev=>prev.filter(x=>x!==t))} style={{background:"none",border:"none",color:"#0369A1",cursor:"pointer",fontSize:14,padding:0,lineHeight:1}}>×</button></span>
-                ))}
-                {TAG_OPTIONS.map(t=>{const c=TAG_COLORS[t];const active=manTags.includes(t);return(
-                  <button key={t} onClick={()=>setManTags(prev=>prev.includes(t)?prev.filter(x=>x!==t):[...prev,t])} style={{fontSize:12,padding:"4px 12px",borderRadius:999,border:active?"none":"1px solid #E5E7EB",background:active&&c?c[0]:"#fff",color:active&&c?c[1]:"#6B7280",fontWeight:active?600:400,cursor:"pointer"}}>{TL[t]||t}</button>
-                );})}
+                {manTags.filter(t=>!TAG_OPTIONS.includes(t)).map(t=>(<span key={t} style={{fontSize:12,padding:"4px 12px",borderRadius:999,background:"#E0F2FE",color:"#0369A1",display:"flex",alignItems:"center",gap:4}}>{t}<button onClick={()=>setManTags(prev=>prev.filter(x=>x!==t))} style={{background:"none",border:"none",color:"#0369A1",cursor:"pointer",fontSize:14,padding:0,lineHeight:1}}>×</button></span>))}
+                {TAG_OPTIONS.map(t=>{const c=TAG_COLORS[t];const active=manTags.includes(t);return(<button key={t} onClick={()=>setManTags(prev=>prev.includes(t)?prev.filter(x=>x!==t):[...prev,t])} style={{fontSize:12,padding:"4px 12px",borderRadius:999,border:active?"none":"1px solid #E5E7EB",background:active&&c?c[0]:"#fff",color:active&&c?c[1]:"#6B7280",fontWeight:active?600:400,cursor:"pointer"}}>{TL[t]||t}</button>);})}
               </div>
               <div style={{display:"flex",gap:6}}>
                 <input value={manTagInput} onChange={e=>setManTagInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&manTagInput.trim()){e.preventDefault();setManTags(prev=>[...prev,manTagInput.trim()]);setManTagInput("");}}} placeholder="새 태그 직접 입력 후 Enter" style={{flex:1,padding:"9px 12px",borderRadius:10,border:"1.5px solid #E5E7EB",fontSize:13,outline:"none",fontFamily:"inherit"}}/>
@@ -331,7 +352,6 @@ export default function App() {
     </div>
   );
 
-  // ── 상세 화면
   if(view==="detail"&&selectedPlace){const p=selectedPlace;return(
     <div style={s}>
       <div style={{...headerStyle,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -360,7 +380,6 @@ export default function App() {
     </div>
   );}
 
-  // ── 수정 화면
   if(view==="edit"&&editPlace) return(
     <div style={s}>
       <div style={{...headerStyle,display:"flex",alignItems:"center",gap:12}}>
@@ -418,7 +437,6 @@ export default function App() {
           </div>
         ):(
           <div>
-            {/* 관리자 서브탭 */}
             <div style={{display:"flex",gap:0,borderBottom:"1px solid #F3F4F6",marginBottom:16}}>
               <button onClick={()=>setAdminTab("access")} style={{flex:1,padding:"10px 0",border:"none",background:"none",fontSize:13,fontWeight:adminTab==="access"?700:400,color:adminTab==="access"?"#111":"#9CA3AF",borderBottom:adminTab==="access"?"2px solid #111":"2px solid transparent",cursor:"pointer"}}>📱 접속 기록</button>
               <button onClick={()=>{setAdminTab("location");loadLocations();}} style={{flex:1,padding:"10px 0",border:"none",background:"none",fontSize:13,fontWeight:adminTab==="location"?700:400,color:adminTab==="location"?"#111":"#9CA3AF",borderBottom:adminTab==="location"?"2px solid #111":"2px solid transparent",cursor:"pointer"}}>📍 위치</button>
@@ -426,7 +444,8 @@ export default function App() {
 
             {adminTab==="access"&&(
               <div>
-                <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                  <div style={{fontSize:12,color:"#9CA3AF"}}>접속 중이면 초록 점 표시</div>
                   <button onClick={loadAccessLogs} style={{background:"none",border:"1px solid #E5E7EB",padding:"6px 12px",borderRadius:8,fontSize:12,color:"#6B7280",cursor:"pointer"}}>새로고침</button>
                 </div>
                 {logsLoading?(
@@ -437,13 +456,19 @@ export default function App() {
                   <div style={{display:"flex",flexDirection:"column",gap:8}}>
                     {accessLogs.sort((a,b)=>new Date(b.lastAccess)-new Date(a.lastAccess)).map((log,i)=>{
                       const date=new Date(log.lastAccess);
-                      const diff=Math.floor((new Date()-date)/1000/60);
-                      const timeStr=diff<1?"방금 전":diff<60?`${diff}분 전`:diff<1440?`${Math.floor(diff/60)}시간 전`:`${Math.floor(diff/1440)}일 전`;
+                      const diffMin=Math.floor((now-date)/1000/60);
+                      const st=getStatusBadge(diffMin);
+                      const isDeleted=diffMin>=7*1440;
                       return(
-                        <div key={i} style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:"1px solid #F3F4F6"}}>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-                            <span style={{fontSize:14,fontWeight:600,color:"#111"}}>📱 기기 {i+1}</span>
-                            <span style={{fontSize:12,background:diff<60?"#DCFCE7":"#F3F4F6",color:diff<60?"#166534":"#6B7280",padding:"2px 8px",borderRadius:999,fontWeight:500}}>{timeStr}</span>
+                        <div key={i} style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:`1px solid ${diffMin<2?"#86EFAC":isDeleted?"#FECACA":"#F3F4F6"}`}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                            <div style={{display:"flex",alignItems:"center",gap:6}}>
+                              <span style={{width:9,height:9,borderRadius:"50%",background:st.dot,display:"inline-block",flexShrink:0}}/>
+                              <span style={{fontSize:14,fontWeight:600,color:"#111"}}>기기 {i+1}</span>
+                              {diffMin<2&&<span style={{fontSize:10,background:"#DCFCE7",color:"#166534",padding:"1px 7px",borderRadius:999,fontWeight:700}}>접속 중</span>}
+                              {isDeleted&&<span style={{fontSize:10,background:"#FEF2F2",color:"#991B1B",padding:"1px 7px",borderRadius:999,fontWeight:600}}>미사용</span>}
+                            </div>
+                            <span style={{fontSize:12,background:st.bg,color:st.color,padding:"2px 8px",borderRadius:999,fontWeight:500}}>{st.label}</span>
                           </div>
                           <div style={{fontSize:12,color:"#9CA3AF"}}>{date.toLocaleString("ko-KR")}</div>
                         </div>
@@ -471,15 +496,19 @@ export default function App() {
                   <div style={{display:"flex",flexDirection:"column",gap:8}}>
                     {locations.sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt)).map((loc,i)=>{
                       const date=new Date(loc.updatedAt);
-                      const diff=Math.floor((new Date()-date)/1000/60);
-                      const timeStr=diff<1?"방금 전":diff<60?`${diff}분 전`:diff<1440?`${Math.floor(diff/60)}시간 전`:`${Math.floor(diff/1440)}일 전`;
+                      const diffMin=Math.floor((now-date)/1000/60);
+                      const st=getStatusBadge(diffMin);
                       const naverUrl=`https://map.naver.com/p/search/${loc.lat},${loc.lng}`;
                       const kakaoUrl=`https://map.kakao.com/link/map/위치,${loc.lat},${loc.lng}`;
                       return(
                         <div key={i} style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:"1px solid #F3F4F6"}}>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                            <span style={{fontSize:14,fontWeight:600,color:"#111"}}>📱 기기 {i+1}</span>
-                            <span style={{fontSize:12,background:diff<60?"#DCFCE7":"#F3F4F6",color:diff<60?"#166534":"#6B7280",padding:"2px 8px",borderRadius:999,fontWeight:500}}>{timeStr}</span>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                            <div style={{display:"flex",alignItems:"center",gap:6}}>
+                              <span style={{width:9,height:9,borderRadius:"50%",background:st.dot,display:"inline-block"}}/>
+                              <span style={{fontSize:14,fontWeight:600,color:"#111"}}>기기 {i+1}</span>
+                              {diffMin<2&&<span style={{fontSize:10,background:"#DCFCE7",color:"#166534",padding:"1px 7px",borderRadius:999,fontWeight:700}}>접속 중</span>}
+                            </div>
+                            <span style={{fontSize:12,background:st.bg,color:st.color,padding:"2px 8px",borderRadius:999,fontWeight:500}}>{st.label}</span>
                           </div>
                           <div style={{fontSize:12,color:"#9CA3AF",marginBottom:4}}>{date.toLocaleString("ko-KR")}</div>
                           <div style={{fontSize:12,color:"#6B7280",marginBottom:10}}>위도 {loc.lat?.toFixed(5)} · 경도 {loc.lng?.toFixed(5)} · 정확도 {loc.accuracy}m</div>
@@ -501,7 +530,6 @@ export default function App() {
     </div>
   );
 
-  // ── 메인 리스트
   return(
     <div style={s}>
       <div style={{background:"#fff",padding:"52px 20px 10px",borderBottom:"1px solid #F3F4F6",position:"sticky",top:0,zIndex:10}}>
