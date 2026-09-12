@@ -98,13 +98,12 @@ const BottomTab = ({tab,setTab}) => (
   </div>
 );
 
-// 상태 뱃지 헬퍼
 function getStatusBadge(diffMin) {
   if (diffMin < 2) return { label:"접속 중", dot:"#22C55E", bg:"#DCFCE7", color:"#166534" };
-  if (diffMin < 60) return { label:"방금 전", dot:"#86EFAC", bg:"#F0FDF4", color:"#15803D" };
+  if (diffMin < 60) return { label:`${diffMin}분 전`, dot:"#86EFAC", bg:"#F0FDF4", color:"#15803D" };
   if (diffMin < 1440) return { label:`${Math.floor(diffMin/60)}시간 전`, dot:"#D1D5DB", bg:"#F3F4F6", color:"#6B7280" };
   const days = Math.floor(diffMin/1440);
-  if (days >= 7) return { label:`${days}일 전 (미사용)`, dot:"#FCA5A5", bg:"#FEF2F2", color:"#991B1B" };
+  if (days >= 7) return { label:`${days}일 전`, dot:"#FCA5A5", bg:"#FEF2F2", color:"#991B1B" };
   return { label:`${days}일 전`, dot:"#D1D5DB", bg:"#F3F4F6", color:"#6B7280" };
 }
 
@@ -151,9 +150,11 @@ export default function App() {
   const [logsLoading, setLogsLoading] = useState(false);
   const [locations, setLocations] = useState([]);
   const [locLoading, setLocLoading] = useState(false);
+  const [activities, setActivities] = useState([]);
+  const [actLoading, setActLoading] = useState(false);
   const [adminTab, setAdminTab] = useState("access");
-  // 실시간 시간 갱신용
   const [now, setNow] = useState(new Date());
+  const [deviceId, setDeviceId] = useState("");
 
   const save = useCallback(async (data) => {
     setPlaces(data);
@@ -167,47 +168,43 @@ export default function App() {
 
   const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(""),2500); };
 
-  // 기기 ID, 접속 로그, 위치 수집
   useEffect(()=>{
-    let deviceId = localStorage.getItem("dd_device_id");
-    if(!deviceId){ deviceId="device_"+Math.random().toString(36).slice(2,10); localStorage.setItem("dd_device_id",deviceId); }
-
-    const ping = () => {
-      fetch("/api/access-log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device:deviceId})}).catch(()=>{});
-    };
+    let did = localStorage.getItem("dd_device_id");
+    if(!did){ did="device_"+Math.random().toString(36).slice(2,10); localStorage.setItem("dd_device_id",did); }
+    setDeviceId(did);
+    const ping = () => fetch("/api/access-log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device:did})}).catch(()=>{});
     ping();
-    // 30초마다 핑 → 접속 중 여부 실시간 확인
     const pingInterval = setInterval(ping, 30000);
-
     if(navigator.geolocation){
       navigator.geolocation.getCurrentPosition(
-        (pos)=>{ fetch("/api/location-set",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device:deviceId,lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:Math.round(pos.coords.accuracy)})}).catch(()=>{}); },
+        (pos)=>{ fetch("/api/location-set",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device:did,lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:Math.round(pos.coords.accuracy)})}).catch(()=>{}); },
         ()=>{}
       );
     }
     return ()=>clearInterval(pingInterval);
   },[]);
 
-  // 관리자 탭 열려있을 때 1분마다 자동 새로고침
   useEffect(()=>{
     if(tab!=="admin"||!adminAuthed||adminTab!=="access") return;
     const interval = setInterval(()=>{ loadAccessLogs(); setNow(new Date()); }, 60000);
     return ()=>clearInterval(interval);
   },[tab,adminAuthed,adminTab]);
 
-  // 1초마다 now 갱신 (접속중 표시 실시간 업데이트)
-  useEffect(()=>{
-    const t = setInterval(()=>setNow(new Date()), 10000);
-    return ()=>clearInterval(t);
-  },[]);
+  useEffect(()=>{ const t=setInterval(()=>setNow(new Date()),10000); return()=>clearInterval(t); },[]);
 
-  // 서버에서 데이터 불러오기
   useEffect(()=>{
     fetch("/api/places-get").then(r=>r.json()).then(result=>{
       if(result.ok&&result.data){ setPlaces(JSON.parse(result.data)); }
       else { setPlaces(INITIAL_PLACES); fetch("/api/places-set",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:JSON.stringify(INITIAL_PLACES)})}); }
       setLoading(false);
     }).catch(()=>{setPlaces(INITIAL_PLACES);setLoading(false);});
+  },[]);
+
+  // 카드 클릭 시 활동 로그 기록
+  const logActivity = useCallback((place) => {
+    const did = localStorage.getItem("dd_device_id");
+    if(!did) return;
+    fetch("/api/activity-log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device:did,placeName:place.name,region:place.region})}).catch(()=>{});
   },[]);
 
   const exportLink = async () => {
@@ -254,18 +251,11 @@ export default function App() {
   const toggleVisited=(id)=>{const updated=places.map(p=>p.id===id?{...p,visited:!p.visited}:p);save(updated);const p=updated.find(x=>x.id===id);setSelectedPlace(p);showToast(p.visited?"✅ 방문 완료로 표시했어요!":"방문 표시를 해제했어요.");};
   const resetAdd=()=>{setManName("");setManAddr("");setManRegion("");setManNote("");setManTags([]);setManConceptList([]);setManConceptInput("");setManTagInput("");setAiName("");setAiAddr("");setAiNote("");setAiPreview(null);setAiError("");setView("list");};
 
-  const loadAccessLogs=async()=>{
-    setLogsLoading(true);
-    try{const r=await fetch("/api/access-log");const result=await r.json();if(result.ok)setAccessLogs(result.logs);}
-    catch{}setLogsLoading(false);
-  };
-  const loadLocations=async()=>{
-    setLocLoading(true);
-    try{const r=await fetch("/api/location-get");const result=await r.json();if(result.ok)setLocations(result.locations);}
-    catch{}setLocLoading(false);
-  };
+  const loadAccessLogs=async()=>{setLogsLoading(true);try{const r=await fetch("/api/access-log");const result=await r.json();if(result.ok)setAccessLogs(result.logs);}catch{}setLogsLoading(false);};
+  const loadLocations=async()=>{setLocLoading(true);try{const r=await fetch("/api/location-get");const result=await r.json();if(result.ok)setLocations(result.locations);}catch{}setLocLoading(false);};
+  const loadActivities=async()=>{setActLoading(true);try{const r=await fetch("/api/activity-log");const result=await r.json();if(result.ok)setActivities(result.activities);}catch{}setActLoading(false);};
   const handleAdminLogin=()=>{
-    if(adminPw===ADMIN_PW){setAdminAuthed(true);setAdminPwError(false);loadAccessLogs();loadLocations();}
+    if(adminPw===ADMIN_PW){setAdminAuthed(true);setAdminPwError(false);loadAccessLogs();loadLocations();loadActivities();}
     else{setAdminPwError(true);}
   };
 
@@ -419,7 +409,6 @@ export default function App() {
     </div>
   );
 
-  // ── 관리자 화면
   if(tab==="admin") return(
     <div style={s}>
       <div style={{...headerStyle}}>
@@ -438,8 +427,9 @@ export default function App() {
         ):(
           <div>
             <div style={{display:"flex",gap:0,borderBottom:"1px solid #F3F4F6",marginBottom:16}}>
-              <button onClick={()=>setAdminTab("access")} style={{flex:1,padding:"10px 0",border:"none",background:"none",fontSize:13,fontWeight:adminTab==="access"?700:400,color:adminTab==="access"?"#111":"#9CA3AF",borderBottom:adminTab==="access"?"2px solid #111":"2px solid transparent",cursor:"pointer"}}>📱 접속 기록</button>
-              <button onClick={()=>{setAdminTab("location");loadLocations();}} style={{flex:1,padding:"10px 0",border:"none",background:"none",fontSize:13,fontWeight:adminTab==="location"?700:400,color:adminTab==="location"?"#111":"#9CA3AF",borderBottom:adminTab==="location"?"2px solid #111":"2px solid transparent",cursor:"pointer"}}>📍 위치</button>
+              <button onClick={()=>setAdminTab("access")} style={{flex:1,padding:"10px 0",border:"none",background:"none",fontSize:12,fontWeight:adminTab==="access"?700:400,color:adminTab==="access"?"#111":"#9CA3AF",borderBottom:adminTab==="access"?"2px solid #111":"2px solid transparent",cursor:"pointer"}}>📱 접속</button>
+              <button onClick={()=>{setAdminTab("activity");loadActivities();}} style={{flex:1,padding:"10px 0",border:"none",background:"none",fontSize:12,fontWeight:adminTab==="activity"?700:400,color:adminTab==="activity"?"#111":"#9CA3AF",borderBottom:adminTab==="activity"?"2px solid #111":"2px solid transparent",cursor:"pointer"}}>👀 열람</button>
+              <button onClick={()=>{setAdminTab("location");loadLocations();}} style={{flex:1,padding:"10px 0",border:"none",background:"none",fontSize:12,fontWeight:adminTab==="location"?700:400,color:adminTab==="location"?"#111":"#9CA3AF",borderBottom:adminTab==="location"?"2px solid #111":"2px solid transparent",cursor:"pointer"}}>📍 위치</button>
             </div>
 
             {adminTab==="access"&&(
@@ -448,34 +438,65 @@ export default function App() {
                   <div style={{fontSize:12,color:"#9CA3AF"}}>접속 중이면 초록 점 표시</div>
                   <button onClick={loadAccessLogs} style={{background:"none",border:"1px solid #E5E7EB",padding:"6px 12px",borderRadius:8,fontSize:12,color:"#6B7280",cursor:"pointer"}}>새로고침</button>
                 </div>
-                {logsLoading?(
-                  <div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>불러오는 중...</div>
-                ):accessLogs.length===0?(
-                  <div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>접속 기록이 없어요</div>
-                ):(
-                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                    {accessLogs.sort((a,b)=>new Date(b.lastAccess)-new Date(a.lastAccess)).map((log,i)=>{
-                      const date=new Date(log.lastAccess);
-                      const diffMin=Math.floor((now-date)/1000/60);
-                      const st=getStatusBadge(diffMin);
-                      const isDeleted=diffMin>=7*1440;
-                      return(
-                        <div key={i} style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:`1px solid ${diffMin<2?"#86EFAC":isDeleted?"#FECACA":"#F3F4F6"}`}}>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                            <div style={{display:"flex",alignItems:"center",gap:6}}>
-                              <span style={{width:9,height:9,borderRadius:"50%",background:st.dot,display:"inline-block",flexShrink:0}}/>
-                              <span style={{fontSize:14,fontWeight:600,color:"#111"}}>기기 {i+1}</span>
-                              {diffMin<2&&<span style={{fontSize:10,background:"#DCFCE7",color:"#166534",padding:"1px 7px",borderRadius:999,fontWeight:700}}>접속 중</span>}
-                              {isDeleted&&<span style={{fontSize:10,background:"#FEF2F2",color:"#991B1B",padding:"1px 7px",borderRadius:999,fontWeight:600}}>미사용</span>}
-                            </div>
-                            <span style={{fontSize:12,background:st.bg,color:st.color,padding:"2px 8px",borderRadius:999,fontWeight:500}}>{st.label}</span>
+                {logsLoading?<div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>불러오는 중...</div>
+                :accessLogs.length===0?<div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>접속 기록이 없어요</div>
+                :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {accessLogs.sort((a,b)=>new Date(b.lastAccess)-new Date(a.lastAccess)).map((log,i)=>{
+                    const date=new Date(log.lastAccess);
+                    const diffMin=Math.floor((now-date)/1000/60);
+                    const st=getStatusBadge(diffMin);
+                    const isDeleted=diffMin>=7*1440;
+                    return(
+                      <div key={i} style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:`1px solid ${diffMin<2?"#86EFAC":isDeleted?"#FECACA":"#F3F4F6"}`}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                          <div style={{display:"flex",alignItems:"center",gap:6}}>
+                            <span style={{width:9,height:9,borderRadius:"50%",background:st.dot,display:"inline-block",flexShrink:0}}/>
+                            <span style={{fontSize:14,fontWeight:600,color:"#111"}}>기기 {i+1}</span>
+                            {diffMin<2&&<span style={{fontSize:10,background:"#DCFCE7",color:"#166534",padding:"1px 7px",borderRadius:999,fontWeight:700}}>접속 중</span>}
+                            {isDeleted&&<span style={{fontSize:10,background:"#FEF2F2",color:"#991B1B",padding:"1px 7px",borderRadius:999,fontWeight:600}}>미사용</span>}
                           </div>
-                          <div style={{fontSize:12,color:"#9CA3AF"}}>{date.toLocaleString("ko-KR")}</div>
+                          <span style={{fontSize:12,background:st.bg,color:st.color,padding:"2px 8px",borderRadius:999,fontWeight:500}}>{st.label}</span>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                        <div style={{fontSize:12,color:"#9CA3AF"}}>{date.toLocaleString("ko-KR")}</div>
+                      </div>
+                    );
+                  })}
+                </div>}
+              </div>
+            )}
+
+            {adminTab==="activity"&&(
+              <div>
+                <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+                  <button onClick={loadActivities} style={{background:"none",border:"1px solid #E5E7EB",padding:"6px 12px",borderRadius:8,fontSize:12,color:"#6B7280",cursor:"pointer"}}>새로고침</button>
+                </div>
+                {actLoading?<div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>불러오는 중...</div>
+                :activities.length===0?<div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}><div style={{fontSize:30,marginBottom:8}}>👀</div><div style={{fontSize:14}}>열람 기록이 없어요</div></div>
+                :<div style={{display:"flex",flexDirection:"column",gap:12}}>
+                  {activities.map((act,i)=>(
+                    <div key={i} style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:"1px solid #F3F4F6"}}>
+                      <div style={{fontSize:14,fontWeight:700,color:"#111",marginBottom:10}}>📱 기기 {i+1}</div>
+                      {act.logs.length===0?<div style={{fontSize:13,color:"#9CA3AF"}}>열람 기록 없음</div>
+                      :<div style={{display:"flex",flexDirection:"column",gap:6}}>
+                        {act.logs.slice(0,10).map((log,j)=>{
+                          const date=new Date(log.viewedAt);
+                          const diffMin=Math.floor((now-date)/1000/60);
+                          const timeStr=diffMin<1?"방금 전":diffMin<60?`${diffMin}분 전`:diffMin<1440?`${Math.floor(diffMin/60)}시간 전`:`${Math.floor(diffMin/1440)}일 전`;
+                          return(
+                            <div key={j} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:"#F9FAFB",borderRadius:8}}>
+                              <div>
+                                <div style={{fontSize:13,fontWeight:600,color:"#111"}}>{log.placeName}</div>
+                                <div style={{fontSize:11,color:"#9CA3AF"}}>{log.region}</div>
+                              </div>
+                              <div style={{fontSize:11,color:"#9CA3AF",flexShrink:0,marginLeft:8}}>{timeStr}</div>
+                            </div>
+                          );
+                        })}
+                        {act.logs.length>10&&<div style={{fontSize:12,color:"#9CA3AF",textAlign:"center"}}>외 {act.logs.length-10}개</div>}
+                      </div>}
+                    </div>
+                  ))}
+                </div>}
               </div>
             )}
 
@@ -484,43 +505,35 @@ export default function App() {
                 <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
                   <button onClick={loadLocations} style={{background:"none",border:"1px solid #E5E7EB",padding:"6px 12px",borderRadius:8,fontSize:12,color:"#6B7280",cursor:"pointer"}}>새로고침</button>
                 </div>
-                {locLoading?(
-                  <div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>불러오는 중...</div>
-                ):locations.length===0?(
-                  <div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>
-                    <div style={{fontSize:30,marginBottom:8}}>📍</div>
-                    <div style={{fontSize:14}}>위치 정보가 없어요</div>
-                    <div style={{fontSize:12,marginTop:4,color:"#CBD5E1"}}>앱 접속 시 위치 권한을 허용해야 해요</div>
-                  </div>
-                ):(
-                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                    {locations.sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt)).map((loc,i)=>{
-                      const date=new Date(loc.updatedAt);
-                      const diffMin=Math.floor((now-date)/1000/60);
-                      const st=getStatusBadge(diffMin);
-                      const naverUrl=`https://map.naver.com/p/search/${loc.lat},${loc.lng}`;
-                      const kakaoUrl=`https://map.kakao.com/link/map/위치,${loc.lat},${loc.lng}`;
-                      return(
-                        <div key={i} style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:"1px solid #F3F4F6"}}>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                            <div style={{display:"flex",alignItems:"center",gap:6}}>
-                              <span style={{width:9,height:9,borderRadius:"50%",background:st.dot,display:"inline-block"}}/>
-                              <span style={{fontSize:14,fontWeight:600,color:"#111"}}>기기 {i+1}</span>
-                              {diffMin<2&&<span style={{fontSize:10,background:"#DCFCE7",color:"#166534",padding:"1px 7px",borderRadius:999,fontWeight:700}}>접속 중</span>}
-                            </div>
-                            <span style={{fontSize:12,background:st.bg,color:st.color,padding:"2px 8px",borderRadius:999,fontWeight:500}}>{st.label}</span>
+                {locLoading?<div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>불러오는 중...</div>
+                :locations.length===0?<div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}><div style={{fontSize:30,marginBottom:8}}>📍</div><div style={{fontSize:14}}>위치 정보가 없어요</div><div style={{fontSize:12,marginTop:4,color:"#CBD5E1"}}>앱 접속 시 위치 권한을 허용해야 해요</div></div>
+                :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {locations.sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt)).map((loc,i)=>{
+                    const date=new Date(loc.updatedAt);
+                    const diffMin=Math.floor((now-date)/1000/60);
+                    const st=getStatusBadge(diffMin);
+                    const naverUrl=`https://map.naver.com/p/search/${loc.lat},${loc.lng}`;
+                    const kakaoUrl=`https://map.kakao.com/link/map/위치,${loc.lat},${loc.lng}`;
+                    return(
+                      <div key={i} style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:"1px solid #F3F4F6"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                          <div style={{display:"flex",alignItems:"center",gap:6}}>
+                            <span style={{width:9,height:9,borderRadius:"50%",background:st.dot,display:"inline-block"}}/>
+                            <span style={{fontSize:14,fontWeight:600,color:"#111"}}>기기 {i+1}</span>
+                            {diffMin<2&&<span style={{fontSize:10,background:"#DCFCE7",color:"#166534",padding:"1px 7px",borderRadius:999,fontWeight:700}}>접속 중</span>}
                           </div>
-                          <div style={{fontSize:12,color:"#9CA3AF",marginBottom:4}}>{date.toLocaleString("ko-KR")}</div>
-                          <div style={{fontSize:12,color:"#6B7280",marginBottom:10}}>위도 {loc.lat?.toFixed(5)} · 경도 {loc.lng?.toFixed(5)} · 정확도 {loc.accuracy}m</div>
-                          <div style={{display:"flex",gap:6}}>
-                            <button onClick={()=>window.open(naverUrl,"_blank")} style={{flex:1,padding:"8px 0",borderRadius:8,border:"none",background:"#03C75A",color:"#fff",fontSize:12,fontWeight:600,cursor:"pointer"}}>🗺 네이버 지도</button>
-                            <button onClick={()=>window.open(kakaoUrl,"_blank")} style={{flex:1,padding:"8px 0",borderRadius:8,border:"none",background:"#FEE500",color:"#000",fontSize:12,fontWeight:600,cursor:"pointer"}}>🗺 카카오 지도</button>
-                          </div>
+                          <span style={{fontSize:12,background:st.bg,color:st.color,padding:"2px 8px",borderRadius:999,fontWeight:500}}>{st.label}</span>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                        <div style={{fontSize:12,color:"#9CA3AF",marginBottom:4}}>{date.toLocaleString("ko-KR")}</div>
+                        <div style={{fontSize:12,color:"#6B7280",marginBottom:10}}>위도 {loc.lat?.toFixed(5)} · 경도 {loc.lng?.toFixed(5)} · 정확도 {loc.accuracy}m</div>
+                        <div style={{display:"flex",gap:6}}>
+                          <button onClick={()=>window.open(naverUrl,"_blank")} style={{flex:1,padding:"8px 0",borderRadius:8,border:"none",background:"#03C75A",color:"#fff",fontSize:12,fontWeight:600,cursor:"pointer"}}>🗺 네이버 지도</button>
+                          <button onClick={()=>window.open(kakaoUrl,"_blank")} style={{flex:1,padding:"8px 0",borderRadius:8,border:"none",background:"#FEE500",color:"#000",fontSize:12,fontWeight:600,cursor:"pointer"}}>🗺 카카오 지도</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>}
               </div>
             )}
           </div>
@@ -576,11 +589,11 @@ export default function App() {
               <span style={{fontSize:12,color:"#CBD5E1"}}>{rplaces.length}</span>
             </div>
             {rplaces.map(p=>(
-              <div key={p.id} onClick={()=>{setSelectedPlace(p);setView("detail");}} style={{background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:8,borderLeft:p.숲길?"3px solid #10B981":"none",border:p.숲길?"1px solid #E5E7EB":"1px solid #F3F4F6",cursor:"pointer",WebkitTapHighlightColor:"transparent"}}>
+              <div key={p.id} onClick={()=>{setSelectedPlace(p);setView("detail");logActivity(p);}} style={{background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:8,borderLeft:p.숲길?"3px solid #10B981":"none",border:p.숲길?"1px solid #E5E7EB":"1px solid #F3F4F6",cursor:"pointer",WebkitTapHighlightColor:"transparent"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                   <span style={{fontSize:15,fontWeight:600,color:"#111",flex:1}}>{p.name}</span>
                   <div style={{display:"flex",gap:4,alignItems:"center",flexShrink:0,marginLeft:8}}>
-                    {p.visited&&<span style={{fontSize:10,background:"#DCFCE7",color:"#166534",padding:"2px 8px",borderRadius:4,fontWeight:700}}>✓ 방문</span>}
+                    {p.visited&&<span style={{fontSize:10,background:"#DCFCE7",color:"#166634",padding:"2px 8px",borderRadius:4,fontWeight:700}}>✓ 방문</span>}
                     {p.id?.startsWith("u")&&<span style={{fontSize:10,background:"#EEF2FF",color:"#6366F1",padding:"2px 6px",borderRadius:4}}>추가됨</span>}
                   </div>
                 </div>
