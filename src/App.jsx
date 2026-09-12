@@ -465,7 +465,7 @@ export default function App() {
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
                           <div style={{display:"flex",alignItems:"center",gap:6}}>
                             <span style={{width:9,height:9,borderRadius:"50%",background:st.dot,display:"inline-block",flexShrink:0}}/>
-                            <span style={{fontSize:14,fontWeight:600,color:"#111"}}>{deviceNames[loc.device] || `기기 ${i+1}`}</span>
+                            <span style={{fontSize:14,fontWeight:600,color:"#111"}}>{deviceNames[log.device] || `기기 ${i+1}`}</span>
                             {diffMin<2&&<span style={{fontSize:10,background:"#DCFCE7",color:"#166534",padding:"1px 7px",borderRadius:999,fontWeight:700}}>접속 중</span>}
                             {isDeleted&&<span style={{fontSize:10,background:"#FEF2F2",color:"#991B1B",padding:"1px 7px",borderRadius:999,fontWeight:600}}>미사용</span>}
                           </div>
@@ -536,7 +536,7 @@ export default function App() {
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
                           <div style={{display:"flex",alignItems:"center",gap:6}}>
                             <span style={{width:9,height:9,borderRadius:"50%",background:st.dot,display:"inline-block"}}/>
-                            <span style={{fontSize:14,fontWeight:600,color:"#111"}}>{deviceNames[loc.device] || `기기 ${i+1}`}</span>
+                            <span style={{fontSize:14,fontWeight:600,color:"#111"}}>{deviceNames[log.device] || `기기 ${i+1}`}</span>
                             {diffMin<2&&<span style={{fontSize:10,background:"#DCFCE7",color:"#166534",padding:"1px 7px",borderRadius:999,fontWeight:700}}>접속 중</span>}
                           </div>
                           <span style={{fontSize:12,background:st.bg,color:st.color,padding:"2px 8px",borderRadius:999,fontWeight:500}}>{st.label}</span>
