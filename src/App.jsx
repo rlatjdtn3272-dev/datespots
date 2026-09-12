@@ -72,7 +72,7 @@ const REGION_EMOJI = {"영등포":"🏙","문래":"🏭","경의선 숲길 전�
 const TYPE_FILTERS = [{key:"all",label:"전체"},{key:"food",label:"🍽 식당"},{key:"한식",label:"🥢 한식"},{key:"일식",label:"🍱 일식"},{key:"양식",label:"🍝 양식"},{key:"naeng",label:"🍜 냉면"},{key:"bar",label:"🍷 바/펍"},{key:"cafe",label:"☕ 카페"},{key:"activity",label:"🎯 체험"},{key:"market",label:"🛒 시장"},{key:"숲길",label:"🌿 숲길"}];
 const CONCEPT_FILTERS = ["루프탑","코타츠","와인바","칵테일바","영화컨셉","전통주","하이볼","노포","한강피크닉","다락방","한옥분위기","오픈런","수목원","데이트","해산물","포차"];
 const TAG_OPTIONS = ["food","bar","cafe","activity","market","한식","일식","양식","분식","naeng","숲길"];
-const ADMIN_PW = "853146";
+const ADMIN_PW = "@GOS@ghafjs852~";
 
 const Tag = ({tag})=>{ const c=TAG_COLORS[tag]; if(!c)return null; return <span style={{fontSize:11,padding:"2px 8px",borderRadius:999,background:c[0],color:c[1],fontWeight:500}}>{TL[tag]||tag}</span>; };
 const Chip = ({label})=><span style={{fontSize:11,padding:"2px 9px",borderRadius:999,background:"#F3F4F6",color:"#6B7280",border:"1px solid #E5E7EB"}}>{label}</span>;
