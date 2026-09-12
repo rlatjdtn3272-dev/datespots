@@ -155,6 +155,8 @@ export default function App() {
   const [adminTab, setAdminTab] = useState("access");
   const [now, setNow] = useState(new Date());
   const [deviceId, setDeviceId] = useState("");
+  const [deviceNames, setDeviceNames] = useState({});
+  const [editingName, setEditingName] = useState({}); // {deviceId: "입력중이름"}
 
   const save = useCallback(async (data) => {
     setPlaces(data);
@@ -252,11 +254,22 @@ export default function App() {
   const toggleVisited=(id)=>{const updated=places.map(p=>p.id===id?{...p,visited:!p.visited}:p);save(updated);const p=updated.find(x=>x.id===id);setSelectedPlace(p);showToast(p.visited?"✅ 방문 완료로 표시했어요!":"방문 표시를 해제했어요.");};
   const resetAdd=()=>{setManName("");setManAddr("");setManRegion("");setManNote("");setManTags([]);setManConceptList([]);setManConceptInput("");setManTagInput("");setAiName("");setAiAddr("");setAiNote("");setAiPreview(null);setAiError("");setView("list");};
 
+  const loadDeviceNames=async()=>{
+    try{const r=await fetch("/api/device-name");const result=await r.json();if(result.ok)setDeviceNames(result.names);}
+    catch{}
+  };
+  const saveDeviceName=async(device, name)=>{
+    try{
+      await fetch("/api/device-name",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device,name})});
+      setDeviceNames(prev=>({...prev,[device]:name}));
+    }catch{}
+  };
+
   const loadAccessLogs=async()=>{setLogsLoading(true);try{const r=await fetch("/api/access-log");const result=await r.json();if(result.ok)setAccessLogs(result.logs);}catch{}setLogsLoading(false);};
   const loadLocations=async()=>{setLocLoading(true);try{const r=await fetch("/api/location-get");const result=await r.json();if(result.ok)setLocations(result.locations);}catch{}setLocLoading(false);};
   const loadActivities=async()=>{setActLoading(true);try{const r=await fetch("/api/activity-log");const result=await r.json();if(result.ok)setActivities(result.activities);}catch{}setActLoading(false);};
   const handleAdminLogin=()=>{
-    if(adminPw===ADMIN_PW){setAdminAuthed(true);setAdminPwError(false);loadAccessLogs();loadLocations();loadActivities();}
+    if(adminPw===ADMIN_PW){setAdminAuthed(true);setAdminPwError(false);loadAccessLogs();loadLocations();loadActivities();loadDeviceNames();}
     else{setAdminPwError(true);}
   };
 
@@ -452,7 +465,7 @@ export default function App() {
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
                           <div style={{display:"flex",alignItems:"center",gap:6}}>
                             <span style={{width:9,height:9,borderRadius:"50%",background:st.dot,display:"inline-block",flexShrink:0}}/>
-                            <span style={{fontSize:14,fontWeight:600,color:"#111"}}>기기 {i+1}</span>
+                            <span style={{fontSize:14,fontWeight:600,color:"#111"}}>{deviceNames[loc.device] || `기기 ${i+1}`}</span>
                             {diffMin<2&&<span style={{fontSize:10,background:"#DCFCE7",color:"#166534",padding:"1px 7px",borderRadius:999,fontWeight:700}}>접속 중</span>}
                             {isDeleted&&<span style={{fontSize:10,background:"#FEF2F2",color:"#991B1B",padding:"1px 7px",borderRadius:999,fontWeight:600}}>미사용</span>}
                           </div>
@@ -479,7 +492,7 @@ export default function App() {
                 :<div style={{display:"flex",flexDirection:"column",gap:12}}>
                   {activities.map((act,i)=>(
                     <div key={i} style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:"1px solid #F3F4F6"}}>
-                      <div style={{fontSize:14,fontWeight:700,color:"#111",marginBottom:10}}>📱 기기 {i+1}</div>
+                      <div style={{fontSize:14,fontWeight:700,color:"#111",marginBottom:10}}>📱 {deviceNames[act.device] || `기기 ${i+1}`}</div>
                       {act.logs.length===0?<div style={{fontSize:13,color:"#9CA3AF"}}>열람 기록 없음</div>
                       :<div style={{display:"flex",flexDirection:"column",gap:6}}>
                         {act.logs.slice(0,10).map((log,j)=>{
@@ -523,7 +536,7 @@ export default function App() {
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
                           <div style={{display:"flex",alignItems:"center",gap:6}}>
                             <span style={{width:9,height:9,borderRadius:"50%",background:st.dot,display:"inline-block"}}/>
-                            <span style={{fontSize:14,fontWeight:600,color:"#111"}}>기기 {i+1}</span>
+                            <span style={{fontSize:14,fontWeight:600,color:"#111"}}>{deviceNames[loc.device] || `기기 ${i+1}`}</span>
                             {diffMin<2&&<span style={{fontSize:10,background:"#DCFCE7",color:"#166534",padding:"1px 7px",borderRadius:999,fontWeight:700}}>접속 중</span>}
                           </div>
                           <span style={{fontSize:12,background:st.bg,color:st.color,padding:"2px 8px",borderRadius:999,fontWeight:500}}>{st.label}</span>
