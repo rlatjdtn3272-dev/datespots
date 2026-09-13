@@ -6,60 +6,46 @@ export default async function handler(req, res) {
 
   const url = process.env.KV_REST_API_URL;
   const token = process.env.KV_REST_API_TOKEN;
+  const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
   if (req.method === "POST") {
     try {
       const { device, standalone, sessionStart } = req.body;
+      if (!device) return res.status(400).json({ ok: false, error: "device required" });
+
       const now = new Date().toISOString();
       const today = now.slice(0, 10);
 
       // 기존 데이터 조회
       let prevData = null;
       try {
-        const r = await fetch(`${url}/get/access_${device}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const j = await r.json();
-        if (j.result) prevData = JSON.parse(j.result);
-      } catch {}
+        const j = await fetch(`${url}/pipeline`, {
+          method: "POST", headers,
+          body: JSON.stringify([["GET", `access_${device}`], ["GET", `daily_${device}_${today}`]])
+        }).then(r => r.json());
+        if (Array.isArray(j) && j[0]?.result) prevData = JSON.parse(j[0].result);
+        var prevDailyMin = Array.isArray(j) && j[1]?.result ? parseFloat(j[1].result) || 0 : 0;
+      } catch { var prevDailyMin = 0; }
 
-      // standalone: 한 번이라도 true면 유지
       const finalStandalone = (prevData?.standalone === true || standalone === true) ? true : (standalone ?? false);
 
-      // 세션 시작 시간
-      let finalSessionStart = sessionStart;
+      let finalSessionStart = sessionStart || now;
       if (prevData?.lastAccess) {
-        const diffSec = (new Date() - new Date(prevData.lastAccess)) / 1000;
+        const diffSec = (new Date(now) - new Date(prevData.lastAccess)) / 1000;
         if (diffSec < 120 && prevData.sessionStart) finalSessionStart = prevData.sessionStart;
       }
 
-      // 세션 체류시간
-      const stayMinutes = finalSessionStart
-        ? Math.round((new Date() - new Date(finalSessionStart)) / 1000 / 60)
-        : 0;
+      const stayMinutes = Math.round((new Date(now) - new Date(finalSessionStart)) / 1000 / 60);
+      const todayMinutes = Math.round((prevDailyMin + 0.5) * 10) / 10;
 
-      // 오늘 누적 체류시간
-      let todayMinutes = 0;
-      try {
-        const r = await fetch(`${url}/get/daily_${device}_${today}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const j = await r.json();
-        if (j.result) todayMinutes = parseFloat(j.result) || 0;
-      } catch {}
-      todayMinutes = Math.round((todayMinutes + 0.5) * 10) / 10;
-
-      // 저장 (별도 요청으로 분리해서 안정성 확보)
       const data = JSON.stringify({ lastAccess: now, standalone: finalStandalone, sessionStart: finalSessionStart, stayMinutes });
-      await fetch(`${url}/set/access_${device}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ value: data })
-      });
-      await fetch(`${url}/set/daily_${device}_${today}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ value: String(todayMinutes), ex: 604800 })
+
+      await fetch(`${url}/pipeline`, {
+        method: "POST", headers,
+        body: JSON.stringify([
+          ["SET", `access_${device}`, data],
+          ["SET", `daily_${device}_${today}`, String(todayMinutes), "EX", 604800]
+        ])
       });
 
       res.status(200).json({ ok: true });
@@ -70,61 +56,45 @@ export default async function handler(req, res) {
 
   if (req.method === "GET") {
     try {
-      const keysRes = await fetch(`${url}/keys/access_*`, { headers: { Authorization: `Bearer ${token}` } });
-      const keysData = await keysRes.json();
-      const keys = Array.isArray(keysData.result) ? keysData.result : [];
-      if (keys.length === 0) return res.status(200).json({ ok: true, logs: [], dailyStats: {} });
+      const [accessKeysJ, dailyKeysJ] = await Promise.all([
+        fetch(`${url}/keys/access_*`, { headers }).then(r => r.json()),
+        fetch(`${url}/keys/daily_*`, { headers }).then(r => r.json()),
+      ]);
 
-      const devices = keys.map(k => k.replace("access_", ""));
+      const accessKeys = Array.isArray(accessKeysJ.result) ? accessKeysJ.result : [];
+      const dailyKeys = Array.isArray(dailyKeysJ.result) ? dailyKeysJ.result : [];
 
-      // 접속 데이터 가져오기
-      const accessPipeline = keys.map(k => ["GET", k]);
-      const accessRes = await fetch(`${url}/pipeline`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify(accessPipeline)
-      });
-      const accessData = await accessRes.json();
+      if (accessKeys.length === 0) return res.status(200).json({ ok: true, logs: [], dailyStats: {} });
 
-      const logs = keys.map((k, i) => {
+      const allKeys = [...accessKeys, ...dailyKeys];
+      const valData = await fetch(`${url}/pipeline`, {
+        method: "POST", headers,
+        body: JSON.stringify(allKeys.map(k => ["GET", k]))
+      }).then(r => r.json());
+
+      const logs = accessKeys.map((k, i) => {
         try {
-          const raw = Array.isArray(accessData) ? accessData[i]?.result : null;
+          const raw = Array.isArray(valData) ? valData[i]?.result : null;
           if (!raw) return { device: k.replace("access_", ""), lastAccess: null, standalone: null, stayMinutes: 0 };
-          const parsed = JSON.parse(raw);
-          return { device: k.replace("access_", ""), lastAccess: parsed.lastAccess, standalone: parsed.standalone, stayMinutes: parsed.stayMinutes || 0 };
+          const p = JSON.parse(raw);
+          return { device: k.replace("access_", ""), lastAccess: p.lastAccess || null, standalone: p.standalone ?? null, stayMinutes: p.stayMinutes || 0 };
         } catch {
           return { device: k.replace("access_", ""), lastAccess: null, standalone: null, stayMinutes: 0 };
         }
       });
 
-      // daily 데이터 가져오기
-      const dailyKeysRes = await fetch(`${url}/keys/daily_*`, { headers: { Authorization: `Bearer ${token}` } });
-      const dailyKeysData = await dailyKeysRes.json();
-      const dailyKeys = Array.isArray(dailyKeysData.result) ? dailyKeysData.result : [];
-
-      let dailyStats = {};
-      if (dailyKeys.length > 0) {
-        const dailyPipeline = dailyKeys.map(k => ["GET", k]);
-        const dailyRes = await fetch(`${url}/pipeline`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify(dailyPipeline)
-        });
-        const dailyData = await dailyRes.json();
-
-        dailyKeys.forEach((k, i) => {
-          const val = Array.isArray(dailyData) ? dailyData[i]?.result : null;
-          const minutes = parseFloat(val) || 0;
-          // key 형식: daily_{device}_{YYYY-MM-DD}
-          const withoutPrefix = k.replace("daily_", "");
-          const dateMatch = withoutPrefix.match(/(\d{4}-\d{2}-\d{2})$/);
-          if (!dateMatch) return;
-          const date = dateMatch[1];
-          const device = withoutPrefix.replace("_" + date, "");
-          if (!dailyStats[device]) dailyStats[device] = {};
-          dailyStats[device][date] = minutes;
-        });
-      }
+      const dailyStats = {};
+      dailyKeys.forEach((k, i) => {
+        const val = Array.isArray(valData) ? valData[accessKeys.length + i]?.result : null;
+        const minutes = parseFloat(val) || 0;
+        const withoutPrefix = k.replace("daily_", "");
+        const dateMatch = withoutPrefix.match(/(\d{4}-\d{2}-\d{2})$/);
+        if (!dateMatch) return;
+        const date = dateMatch[1];
+        const device = withoutPrefix.slice(0, withoutPrefix.length - date.length - 1);
+        if (!dailyStats[device]) dailyStats[device] = {};
+        dailyStats[device][date] = minutes;
+      });
 
       res.status(200).json({ ok: true, logs, dailyStats });
     } catch (e) {
