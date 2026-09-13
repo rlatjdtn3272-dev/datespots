@@ -267,7 +267,7 @@ export default function App() {
 
   const loadAccessLogs=async()=>{setLogsLoading(true);try{const r=await fetch("/api/access-log");const result=await r.json();if(result.ok)setAccessLogs(result.logs);}catch{}setLogsLoading(false);};
   const loadLocations=async()=>{setLocLoading(true);try{const r=await fetch("/api/location-get");const result=await r.json();if(result.ok)setLocations(result.locations);}catch{}setLocLoading(false);};
-  const loadActivities=async()=>{setActLoading(true);try{const r=await fetch("/api/activity-log");const result=await r.json();if(result.ok)setActivities(result.activities);}catch{}setActLoading(false);};
+  const loadActivities=async()=>{setActLoading(true);try{const r=await fetch("/api/activity-log");const result=await r.json();if(result.ok&&Array.isArray(result.activities))setActivities(result.activities);else setActivities([]);}catch{setActivities([]);}setActLoading(false);};
   const handleAdminLogin=()=>{
     if(adminPw===ADMIN_PW){setAdminAuthed(true);setAdminPwError(false);loadAccessLogs();loadLocations();loadActivities();loadDeviceNames();}
     else{setAdminPwError(true);}
@@ -516,8 +516,9 @@ export default function App() {
                 {actLoading?<div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>불러오는 중...</div>
                 :activities.length===0?<div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}><div style={{fontSize:30,marginBottom:8}}>👀</div><div style={{fontSize:14}}>열람 기록이 없어요</div></div>
                 :<div style={{display:"flex",flexDirection:"column",gap:12}}>
-                  {activities.map((act,i)=>{
-                    const actLogs = act.logs || [];
+                  {(activities||[]).map((act,i)=>{
+                    if(!act||!act.device) return null;
+                    const actLogs = Array.isArray(act.logs) ? act.logs : [];
                     return(
                       <div key={i} style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:"1px solid #F3F4F6"}}>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
@@ -527,14 +528,15 @@ export default function App() {
                         {actLogs.length===0?<div style={{fontSize:13,color:"#9CA3AF"}}>열람 기록 없음</div>
                         :<div style={{display:"flex",flexDirection:"column",gap:6}}>
                           {actLogs.map((lg,j)=>{
-                            const d=new Date(lg.viewedAt);
+                            if(!lg||!lg.placeName) return null;
+                            const d=lg.viewedAt?new Date(lg.viewedAt):new Date();
                             const dm=Math.floor((now-d)/1000/60);
-                            const ts=dm<1?"방금 전":dm<60?`${dm}분 전`:dm<1440?`${Math.floor(dm/60)}시간 전`:`${Math.floor(dm/1440)}일 전`;
+                            const ts=isNaN(dm)||dm<1?"방금 전":dm<60?`${dm}분 전`:dm<1440?`${Math.floor(dm/60)}시간 전`:`${Math.floor(dm/1440)}일 전`;
                             return(
                               <div key={j} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:"#F9FAFB",borderRadius:8}}>
                                 <div>
                                   <div style={{fontSize:13,fontWeight:600,color:"#111"}}>{lg.placeName}</div>
-                                  <div style={{fontSize:11,color:"#9CA3AF"}}>{lg.region} · {d.toLocaleString("ko-KR")}</div>
+                                  <div style={{fontSize:11,color:"#9CA3AF"}}>{lg.region||""} · {d.toLocaleString("ko-KR")}</div>
                                 </div>
                                 <div style={{fontSize:11,color:"#9CA3AF",flexShrink:0,marginLeft:8}}>{ts}</div>
                               </div>
