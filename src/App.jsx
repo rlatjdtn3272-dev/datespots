@@ -148,6 +148,7 @@ export default function App() {
   const [adminPwError, setAdminPwError] = useState(false);
   const [accessLogs, setAccessLogs] = useState([]);
   const [logsLoading, setLogsLoading] = useState(false);
+  const [dailyStats, setDailyStats] = useState({});
   const [locations, setLocations] = useState([]);
   const [locLoading, setLocLoading] = useState(false);
   const [activities, setActivities] = useState([]);
@@ -265,7 +266,7 @@ export default function App() {
     }catch{}
   };
 
-  const loadAccessLogs=async()=>{setLogsLoading(true);try{const r=await fetch("/api/access-log");const result=await r.json();if(result.ok)setAccessLogs(result.logs);}catch{}setLogsLoading(false);};
+  const loadAccessLogs=async()=>{setLogsLoading(true);try{const r=await fetch("/api/access-log");const result=await r.json();if(result.ok){setAccessLogs(result.logs||[]);setDailyStats(result.dailyStats||{});}}catch{}setLogsLoading(false);};
   const loadLocations=async()=>{setLocLoading(true);try{const r=await fetch("/api/location-get");const result=await r.json();if(result.ok)setLocations(result.locations);}catch{}setLocLoading(false);};
   const loadActivities=async()=>{setActLoading(true);try{const r=await fetch("/api/activity-log");const result=await r.json();if(result.ok&&Array.isArray(result.activities))setActivities(result.activities);else setActivities([]);}catch{setActivities([]);}setActLoading(false);};
   const handleAdminLogin=()=>{
@@ -498,9 +499,23 @@ export default function App() {
                           <span style={{fontSize:12,background:st.bg,color:st.color,padding:"2px 8px",borderRadius:999,fontWeight:500,flexShrink:0,marginLeft:8}}>{st.label}</span>
                         </div>
                         <div style={{fontSize:12,color:"#9CA3AF",marginBottom:4}}>{date.toLocaleString("ko-KR")}</div>
-                        <div style={{fontSize:11,color: log.standalone===true?"#0369A1":log.standalone===false?"#6B7280":"#CBD5E1"}}>
+                        <div style={{fontSize:11,color: log.standalone===true?"#0369A1":log.standalone===false?"#6B7280":"#CBD5E1",marginBottom:6}}>
                           {log.standalone===true?"📱 앱으로 접속 (설치됨)":log.standalone===false?"🌐 브라우저로 접속 (설치 불확실)":"❓ 확인 불가 (이전 버전)"}
                         </div>
+                        {log.stayMinutes>0&&<div style={{fontSize:11,color:"#9CA3AF",marginBottom:6}}>⏱ 이번 세션 {log.stayMinutes<60?`${log.stayMinutes}분`:`${Math.floor(log.stayMinutes/60)}시간 ${log.stayMinutes%60}분`}</div>}
+                        {dailyStats[log.device]&&Object.keys(dailyStats[log.device]).length>0&&(
+                          <div style={{marginTop:4,paddingTop:8,borderTop:"1px solid #F3F4F6"}}>
+                            <div style={{fontSize:11,color:"#9CA3AF",marginBottom:4}}>📅 일별 체류시간</div>
+                            <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                              {Object.entries(dailyStats[log.device]).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,7).map(([date,min])=>(
+                                <div key={date} style={{display:"flex",justifyContent:"space-between",fontSize:11}}>
+                                  <span style={{color:"#6B7280"}}>{date}</span>
+                                  <span style={{color:"#374151",fontWeight:500}}>{min<60?`${Math.round(min)}분`:`${Math.floor(min/60)}시간 ${Math.round(min%60)}분`}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
