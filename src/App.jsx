@@ -138,16 +138,36 @@ const ActLogs = ({activities, now, getDeviceName}) => {
 };
 
 const PlaceCard = ({p, onClick, logActivity}) => {
+  const cardRef = useRef(null);
+  const viewedRef = useRef(false);
+
   useEffect(()=>{
-    const t = setTimeout(()=>{
-      logActivity({name:p.name, region:p.region}, "view");
-    }, 10000);
-    return ()=>clearTimeout(t);
+    if(viewedRef.current) return;
+    if(!cardRef.current) return;
+    let timer = null;
+
+    const observer = new IntersectionObserver((entries)=>{
+      entries.forEach(entry=>{
+        if(entry.isIntersecting){
+          if(!timer){
+            timer = setTimeout(()=>{
+              logActivity({name:p.name, region:p.region}, "view");
+              viewedRef.current = true;
+              observer.disconnect();
+            }, 10000);
+          }
+        } else {
+          if(timer){ clearTimeout(timer); timer = null; }
+        }
+      });
+    },{threshold:0.3});
+
+    observer.observe(cardRef.current);
+    return ()=>{ observer.disconnect(); if(timer) clearTimeout(timer); };
   },[p.id]);
 
   return (
-    <div onClick={onClick} data-placeid={p.id}
-      style={{background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:8,borderLeft:p.숲길?"3px solid #10B981":"none",border:p.숲길?"1px solid #E5E7EB":"1px solid #F3F4F6",cursor:"pointer",WebkitTapHighlightColor:"transparent"}}>
+    <div ref={cardRef} onClick={onClick} data-placeid={p.id}      style={{background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:8,borderLeft:p.숲길?"3px solid #10B981":"none",border:p.숲길?"1px solid #E5E7EB":"1px solid #F3F4F6",cursor:"pointer",WebkitTapHighlightColor:"transparent"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
         <span style={{fontSize:15,fontWeight:600,color:"#111",flex:1}}>{p.name}</span>
         <div style={{display:"flex",gap:4,alignItems:"center",flexShrink:0,marginLeft:8}}>
