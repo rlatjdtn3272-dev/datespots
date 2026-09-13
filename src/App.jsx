@@ -196,6 +196,25 @@ export default function App() {
 
   useEffect(()=>{ const t=setInterval(()=>setNow(new Date()),60000); return()=>clearInterval(t); },[]);
 
+  // 뷰/탭 변경 시 history 쌓기 (뒤로가기 처리용)
+  useEffect(()=>{
+    if(view!=="list"||tab==="admin"){
+      history.pushState({view,tab},"",window.location.href);
+    }
+  },[view,tab]);
+
+  // 스와이프/버튼 뒤로가기 처리
+  useEffect(()=>{
+    const handlePop=()=>{
+      if(view==="edit"){setView("detail");}
+      else if(view==="detail"||view==="add"){setView("list");setSelectedPlace(null);}
+      else if(tab==="admin"){setTab("list");}
+      else{history.pushState(null,"",window.location.href);}
+    };
+    window.addEventListener("popstate",handlePop);
+    return()=>window.removeEventListener("popstate",handlePop);
+  },[view,tab]);
+
   useEffect(()=>{
     fetch("/api/places-get").then(r=>r.json()).then(result=>{
       if(result.ok&&result.data){ setPlaces(JSON.parse(result.data)); }
