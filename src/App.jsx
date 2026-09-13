@@ -155,13 +155,13 @@ const PlaceCard = ({p, onClick, logActivity}) => {
               logActivity({name:p.name, region:p.region}, "view");
               viewedRef.current = true;
               observer.disconnect();
-            }, 10000);
+            }, 15000);
           }
         } else {
           if(timer){ clearTimeout(timer); timer = null; }
         }
       });
-    },{threshold:0.3});
+    },{threshold:0.7});
 
     observer.observe(cardRef.current);
     } catch(e) { return; }
