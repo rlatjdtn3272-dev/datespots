@@ -150,7 +150,7 @@ const BottomTab = ({tab,setTab}) => (
 
 function getStatusBadge(diffMin) {
   if (diffMin < 2) return { label:"접속 중", dot:"#22C55E", bg:"#DCFCE7", color:"#166534" };
-  if (diffMin < 60) return { label:`${diffMin}분 전`, dot:"#86EFAC", bg:"#F0FDF4", color:"#15803D" };
+  if (diffMin < 60) return { label:`${diffMin}분 전`, dot:"#D1D5DB", bg:"#F3F4F6", color:"#6B7280" };
   if (diffMin < 1440) return { label:`${Math.floor(diffMin/60)}시간 전`, dot:"#D1D5DB", bg:"#F3F4F6", color:"#6B7280" };
   const days = Math.floor(diffMin/1440);
   if (days >= 7) return { label:`${days}일 전`, dot:"#FCA5A5", bg:"#FEF2F2", color:"#991B1B" };
@@ -633,8 +633,10 @@ export default function App() {
                   <button onClick={loadActivities} style={{background:"none",border:"1px solid #E5E7EB",padding:"6px 12px",borderRadius:8,fontSize:12,color:"#6B7280",cursor:"pointer"}}>새로고침</button>
                 </div>
                 {actLoading?<div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>불러오는 중...</div>
-                :activities.length===0?<div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}><div style={{fontSize:30,marginBottom:8}}>👀</div><div style={{fontSize:14}}>열람 기록이 없어요</div></div>
-                :<ActLogs activities={activities} now={now} getDeviceName={getDeviceName}/>}
+                :(<div>
+                  <ActLogs activities={activities} now={now} getDeviceName={getDeviceName}/>
+                  {activities.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}><div style={{fontSize:30,marginBottom:8}}>👀</div><div style={{fontSize:14}}>열람 기록이 없어요</div></div>}
+                </div>)}
               </div>
             )}
 
