@@ -131,6 +131,50 @@ const ActivityList = ({activities, now, getDeviceName}) => {
   );
 };
 
+const ActivityList = ({activities, now, getDeviceName}) => {
+  const [expanded, setExpanded] = React.useState({});
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+      {activities.map((act,i)=>{
+        const isExp = expanded[act.device];
+        const logs = act.logs || [];
+        const shown = isExp ? logs : logs.slice(0,10);
+        return(
+          <div key={i} style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:"1px solid #F3F4F6"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <div style={{fontSize:14,fontWeight:700,color:"#111"}}>📱 {getDeviceName(act.device)}</div>
+              <div style={{fontSize:12,color:"#9CA3AF"}}>총 {logs.length}개</div>
+            </div>
+            {logs.length===0?<div style={{fontSize:13,color:"#9CA3AF"}}>열람 기록 없음</div>
+            :<div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {shown.map((log,j)=>{
+                const date=new Date(log.viewedAt);
+                const diffMin=Math.floor((new Date()-date)/1000/60);
+                const timeStr=diffMin<1?"방금 전":diffMin<60?`${diffMin}분 전`:diffMin<1440?`${Math.floor(diffMin/60)}시간 전`:`${Math.floor(diffMin/1440)}일 전`;
+                return(
+                  <div key={j} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:"#F9FAFB",borderRadius:8}}>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:600,color:"#111"}}>{log.placeName}</div>
+                      <div style={{fontSize:11,color:"#9CA3AF"}}>{log.region} · {date.toLocaleString("ko-KR")}</div>
+                    </div>
+                    <div style={{fontSize:11,color:"#9CA3AF",flexShrink:0,marginLeft:8}}>{timeStr}</div>
+                  </div>
+                );
+              })}
+              {logs.length>10&&(
+                <button onClick={()=>setExpanded(prev=>({...prev,[act.device]:!isExp}))}
+                  style={{width:"100%",padding:"8px",borderRadius:8,border:"1px solid #E5E7EB",background:"none",fontSize:12,color:"#6B7280",cursor:"pointer",marginTop:4}}>
+                  {isExp?`▲ 접기`:`▼ 전체보기 (${logs.length-10}개 더)`}
+                </button>
+              )}
+            </div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const BottomTab = ({tab,setTab}) => (
   <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"#fff",borderTop:"1px solid #F3F4F6",display:"flex",zIndex:50}}>
     <button onClick={()=>setTab("list")} style={{flex:1,padding:"10px 0 14px",border:"none",background:"none",cursor:"pointer",fontSize:10,color:tab==="list"?"#111":"#9CA3AF",fontWeight:tab==="list"?700:400,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
@@ -318,6 +362,20 @@ export default function App() {
   };
 
   const uniqueRegions=useMemo(()=>[...new Set(places.map(p=>p.region))],[places]);
+
+  // 모든 탭에서 기기 번호 통일
+  const deviceOrder = useMemo(()=>{
+    const allDevices = [...new Set([
+      ...accessLogs.map(l=>l.device),
+      ...locations.map(l=>l.device),
+      ...activities.map(a=>a.device),
+    ])];
+    const order = {};
+    allDevices.forEach((d,i)=>{ order[d] = i+1; });
+    return order;
+  },[accessLogs,locations,activities]);
+
+  const getDeviceName = (device) => deviceNames[device] || `기기 ${deviceOrder[device] || "?"}`;
   const allConcepts=useMemo(()=>{const base=[...CONCEPT_FILTERS];places.forEach(p=>(p.concepts||[]).forEach(c=>{if(!base.includes(c))base.push(c);}));return base;},[places]);
   const allTypeTags=useMemo(()=>{const base=[...TYPE_FILTERS];const existing=new Set(TYPE_FILTERS.map(f=>f.key));places.forEach(p=>(p.tags||[]).forEach(t=>{if(!existing.has(t)){existing.add(t);base.push({key:t,label:t});}}));return base;},[places]);
   const filtered=useMemo(()=>places.filter(p=>{const r=activeRegion==="전체지역"||p.region===activeRegion;const t=activeType==="all"||p.tags?.includes(activeType);const c=activeConcept==="all"||(p.concepts||[]).includes(activeConcept);return r&&t&&c;}),[places,activeRegion,activeType,activeConcept]);
@@ -504,16 +562,28 @@ export default function App() {
                     const diffMin=Math.floor((now-date)/1000/60);
                     const st=getStatusBadge(diffMin);
                     const isDeleted=diffMin>=7*1440;
+                    const isEditing = editingName[log.device] !== undefined;
                     return(
                       <div key={i} style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:`1px solid ${diffMin<2?"#86EFAC":isDeleted?"#FECACA":"#F3F4F6"}`}}>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                          <div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <div style={{display:"flex",alignItems:"center",gap:6,flex:1,minWidth:0}}>
                             <span style={{width:9,height:9,borderRadius:"50%",background:st.dot,display:"inline-block",flexShrink:0}}/>
-                            <span style={{fontSize:14,fontWeight:600,color:"#111"}}>{deviceNames[log.device] || `기기 ${i+1}`}</span>
-                            {diffMin<2&&<span style={{fontSize:10,background:"#DCFCE7",color:"#166534",padding:"1px 7px",borderRadius:999,fontWeight:700}}>접속 중</span>}
-                            {isDeleted&&<span style={{fontSize:10,background:"#FEF2F2",color:"#991B1B",padding:"1px 7px",borderRadius:999,fontWeight:600}}>미사용</span>}
+                            {isEditing?(
+                              <input value={editingName[log.device]} onChange={e=>setEditingName(prev=>({...prev,[log.device]:e.target.value}))}
+                                onKeyDown={e=>{if(e.key==="Enter"){saveDeviceName(log.device,editingName[log.device]);setEditingName(prev=>{const n={...prev};delete n[log.device];return n;});}if(e.key==="Escape"){setEditingName(prev=>{const n={...prev};delete n[log.device];return n;});}}}
+                                onBlur={()=>{saveDeviceName(log.device,editingName[log.device]);setEditingName(prev=>{const n={...prev};delete n[log.device];return n;});}}
+                                autoFocus placeholder="이름 입력"
+                                style={{fontSize:14,fontWeight:600,color:"#111",border:"none",borderBottom:"1.5px solid #111",outline:"none",background:"none",flex:1,fontFamily:"inherit"}}/>
+                            ):(
+                              <button onClick={()=>setEditingName(prev=>({...prev,[log.device]:deviceNames[log.device]||""}))}
+                                style={{fontSize:14,fontWeight:600,color:"#111",background:"none",border:"none",padding:0,cursor:"pointer",display:"flex",alignItems:"center",gap:4,fontFamily:"inherit"}}>
+                                {getDeviceName(log.device)}<span style={{fontSize:11,color:"#D1D5DB"}}>✏️</span>
+                              </button>
+                            )}
+                            {diffMin<2&&<span style={{fontSize:10,background:"#DCFCE7",color:"#166534",padding:"1px 7px",borderRadius:999,fontWeight:700,flexShrink:0}}>접속 중</span>}
+                            {isDeleted&&<span style={{fontSize:10,background:"#FEF2F2",color:"#991B1B",padding:"1px 7px",borderRadius:999,fontWeight:600,flexShrink:0}}>미사용</span>}
                           </div>
-                          <span style={{fontSize:12,background:st.bg,color:st.color,padding:"2px 8px",borderRadius:999,fontWeight:500}}>{st.label}</span>
+                          <span style={{fontSize:12,background:st.bg,color:st.color,padding:"2px 8px",borderRadius:999,fontWeight:500,flexShrink:0,marginLeft:8}}>{st.label}</span>
                         </div>
                         <div style={{fontSize:12,color:"#9CA3AF",marginBottom:4}}>{date.toLocaleString("ko-KR")}</div>
                         <div style={{fontSize:11,color: log.standalone===true?"#0369A1":log.standalone===false?"#6B7280":"#CBD5E1"}}>
@@ -533,31 +603,7 @@ export default function App() {
                 </div>
                 {actLoading?<div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>불러오는 중...</div>
                 :activities.length===0?<div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}><div style={{fontSize:30,marginBottom:8}}>👀</div><div style={{fontSize:14}}>열람 기록이 없어요</div></div>
-                :<div style={{display:"flex",flexDirection:"column",gap:12}}>
-                  {activities.map((act,i)=>(
-                    <div key={i} style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:"1px solid #F3F4F6"}}>
-                      <div style={{fontSize:14,fontWeight:700,color:"#111",marginBottom:10}}>📱 {deviceNames[act.device] || `기기 ${i+1}`}</div>
-                      {act.logs.length===0?<div style={{fontSize:13,color:"#9CA3AF"}}>열람 기록 없음</div>
-                      :<div style={{display:"flex",flexDirection:"column",gap:6}}>
-                        {act.logs.slice(0,10).map((log,j)=>{
-                          const date=new Date(log.viewedAt);
-                          const diffMin=Math.floor((now-date)/1000/60);
-                          const timeStr=diffMin<1?"방금 전":diffMin<60?`${diffMin}분 전`:diffMin<1440?`${Math.floor(diffMin/60)}시간 전`:`${Math.floor(diffMin/1440)}일 전`;
-                          return(
-                            <div key={j} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:"#F9FAFB",borderRadius:8}}>
-                              <div>
-                                <div style={{fontSize:13,fontWeight:600,color:"#111"}}>{log.placeName}</div>
-                                <div style={{fontSize:11,color:"#9CA3AF"}}>{log.region}</div>
-                              </div>
-                              <div style={{fontSize:11,color:"#9CA3AF",flexShrink:0,marginLeft:8}}>{timeStr}</div>
-                            </div>
-                          );
-                        })}
-                        {act.logs.length>10&&<div style={{fontSize:12,color:"#9CA3AF",textAlign:"center"}}>외 {act.logs.length-10}개</div>}
-                      </div>}
-                    </div>
-                  ))}
-                </div>}
+                :<ActivityList activities={activities} now={now} getDeviceName={getDeviceName}/>}
               </div>
             )}
 
@@ -580,7 +626,7 @@ export default function App() {
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
                           <div style={{display:"flex",alignItems:"center",gap:6}}>
                             <span style={{width:9,height:9,borderRadius:"50%",background:st.dot,display:"inline-block"}}/>
-                            <span style={{fontSize:14,fontWeight:600,color:"#111"}}>{deviceNames[loc.device] || `기기 ${i+1}`}</span>
+                            <span style={{fontSize:14,fontWeight:600,color:"#111"}}>{deviceNames[log.device] || `기기 ${i+1}`}</span>
                             {diffMin<2&&<span style={{fontSize:10,background:"#DCFCE7",color:"#166534",padding:"1px 7px",borderRadius:999,fontWeight:700}}>접속 중</span>}
                           </div>
                           <span style={{fontSize:12,background:st.bg,color:st.color,padding:"2px 8px",borderRadius:999,fontWeight:500}}>{st.label}</span>
