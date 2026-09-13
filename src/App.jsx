@@ -87,6 +87,56 @@ const Input = ({label,value,onChange,placeholder,required})=>(
   </div>
 );
 
+const ACT_TABS = [{key:"all",label:"전체"},{key:"click",label:"🖱 클릭"},{key:"view",label:"👁 노출"},{key:"filter",label:"🔍 필터"}];
+
+const ActLogs = ({activities, now, getDeviceName}) => {
+  const [selType, setSelType] = useState("all");
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+      <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4}}>
+        {ACT_TABS.map(t=>(
+          <button key={t.key} onClick={()=>setSelType(t.key)}
+            style={{fontSize:11,padding:"4px 10px",borderRadius:999,whiteSpace:"nowrap",border:"none",background:selType===t.key?"#111":"#F3F4F6",color:selType===t.key?"#fff":"#6B7280",cursor:"pointer",flexShrink:0}}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {(activities||[]).map((act,i)=>{
+        if(!act||!act.device) return null;
+        const allLogs = Array.isArray(act.logs) ? act.logs : [];
+        const actLogs = selType==="all" ? allLogs : allLogs.filter(l=>l.type===selType||(selType==="click"&&!l.type));
+        return(
+          <div key={i} style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:"1px solid #F3F4F6"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <div style={{fontSize:14,fontWeight:700,color:"#111"}}>📱 {getDeviceName(act.device)}</div>
+              <div style={{fontSize:12,color:"#9CA3AF"}}>총 {actLogs.length}개</div>
+            </div>
+            {actLogs.length===0?<div style={{fontSize:13,color:"#9CA3AF"}}>기록 없음</div>
+            :<div style={{display:"flex",flexDirection:"column",gap:5}}>
+              {actLogs.map((lg,j)=>{
+                if(!lg||!lg.placeName) return null;
+                const d=lg.viewedAt?new Date(lg.viewedAt):new Date();
+                const dm=Math.floor((now-d)/1000/60);
+                const ts=isNaN(dm)||dm<1?"방금 전":dm<60?`${dm}분 전`:dm<1440?`${Math.floor(dm/60)}시간 전`:`${Math.floor(dm/1440)}일 전`;
+                const typeLabel = lg.type==="filter"?"🔍":lg.type==="view"?"👁":"🖱";
+                return(
+                  <div key={j} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",background:"#F9FAFB",borderRadius:8}}>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:600,color:"#111"}}>{typeLabel} {lg.placeName}</div>
+                      <div style={{fontSize:11,color:"#9CA3AF"}}>{lg.region||""} · {d.toLocaleString("ko-KR")}</div>
+                    </div>
+                    <div style={{fontSize:11,color:"#9CA3AF",flexShrink:0,marginLeft:8}}>{ts}</div>
+                  </div>
+                );
+              })}
+            </div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const BottomTab = ({tab,setTab}) => (
   <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"#fff",borderTop:"1px solid #F3F4F6",display:"flex",zIndex:50}}>
     <button onClick={()=>setTab("list")} style={{flex:1,padding:"10px 0 14px",border:"none",background:"none",cursor:"pointer",fontSize:10,color:tab==="list"?"#111":"#9CA3AF",fontWeight:tab==="list"?700:400,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
@@ -223,12 +273,47 @@ export default function App() {
     }).catch(()=>{setPlaces(INITIAL_PLACES);setLoading(false);});
   },[]);
 
-  // 카드 클릭 시 활동 로그 기록
-  const logActivity = useCallback((place) => {
+  // 활동 로그 기록
+  const logActivity = useCallback((place, type="click") => {
     const did = localStorage.getItem("dd_device_id");
     if(!did) return;
-    fetch("/api/activity-log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device:did,placeName:place.name,region:place.region})}).catch(()=>{});
+    fetch("/api/activity-log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device:did,placeName:place.name,region:place.region,type})}).catch(()=>{});
   },[]);
+
+  const logFilter = useCallback((filterType, value) => {
+    const did = localStorage.getItem("dd_device_id");
+    if(!did) return;
+    fetch("/api/activity-log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device:did,placeName:value,region:filterType,type:"filter"})}).catch(()=>{});
+  },[]);
+
+  // 10초 노출 감지 (Intersection Observer)
+  useEffect(()=>{
+    if(view!=="list") return;
+    const timers = new Map();
+    const observer = new IntersectionObserver((entries)=>{
+      entries.forEach(entry=>{
+        const el = entry.target;
+        const pid = el.dataset.placeid;
+        if(!pid) return;
+        if(entry.isIntersecting){
+          if(!timers.has(pid)){
+            const t = setTimeout(()=>{
+              const name = el.dataset.placename;
+              const region = el.dataset.region;
+              if(name) logActivity({name,region},"view");
+              timers.delete(pid);
+            }, 10000);
+            timers.set(pid, t);
+          }
+        } else {
+          if(timers.has(pid)){ clearTimeout(timers.get(pid)); timers.delete(pid); }
+        }
+      });
+    },{threshold:0.5});
+    const cards = document.querySelectorAll("[data-placeid]");
+    cards.forEach(c=>observer.observe(c));
+    return()=>{ observer.disconnect(); timers.forEach(t=>clearTimeout(t)); };
+  },[view,filtered]);
 
   const exportLink = async () => {
     try { await navigator.clipboard.writeText("https://dongdong-gotgot.vercel.app"); showToast("📋 링크 복사 완료! 상대방에게 보내세요 💌"); }
@@ -490,8 +575,8 @@ export default function App() {
                 :accessLogs.length===0?<div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>접속 기록이 없어요</div>
                 :<div style={{display:"flex",flexDirection:"column",gap:8}}>
                   {accessLogs.sort((a,b)=>new Date(b.lastAccess)-new Date(a.lastAccess)).map((log,i)=>{
-                    const date=new Date(log.lastAccess);
-                    const diffMin=Math.floor((now-date)/1000/60);
+                    const date=log.lastAccess?new Date(log.lastAccess):null;
+                    const diffMin=date&&!isNaN(date)?Math.floor((now-date)/1000/60):99999;
                     const st=getStatusBadge(diffMin);
                     const isDeleted=diffMin>=7*1440;
                     const isEditing = editingName[log.device] !== undefined;
@@ -517,7 +602,7 @@ export default function App() {
                           </div>
                           <span style={{fontSize:12,background:st.bg,color:st.color,padding:"2px 8px",borderRadius:999,fontWeight:500,flexShrink:0,marginLeft:8}}>{st.label}</span>
                         </div>
-                        <div style={{fontSize:12,color:"#9CA3AF",marginBottom:4}}>{date.toLocaleString("ko-KR")}</div>
+                        <div style={{fontSize:12,color:"#9CA3AF",marginBottom:4}}>{date&&!isNaN(date)?date.toLocaleString("ko-KR"):"접속 기록 없음"}</div>
                         <div style={{fontSize:11,color: log.standalone===true?"#0369A1":log.standalone===false?"#6B7280":"#CBD5E1",marginBottom:6}}>
                           {log.standalone===true?"📱 앱으로 접속 (설치됨)":log.standalone===false?"🌐 브라우저로 접속 (설치 불확실)":"❓ 확인 불가 (이전 버전)"}
                         </div>
@@ -549,38 +634,7 @@ export default function App() {
                 </div>
                 {actLoading?<div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>불러오는 중...</div>
                 :activities.length===0?<div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}><div style={{fontSize:30,marginBottom:8}}>👀</div><div style={{fontSize:14}}>열람 기록이 없어요</div></div>
-                :<div style={{display:"flex",flexDirection:"column",gap:12}}>
-                  {(activities||[]).map((act,i)=>{
-                    if(!act||!act.device) return null;
-                    const actLogs = Array.isArray(act.logs) ? act.logs : [];
-                    return(
-                      <div key={i} style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:"1px solid #F3F4F6"}}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                          <div style={{fontSize:14,fontWeight:700,color:"#111"}}>📱 {getDeviceName(act.device)}</div>
-                          <div style={{fontSize:12,color:"#9CA3AF"}}>총 {actLogs.length}개</div>
-                        </div>
-                        {actLogs.length===0?<div style={{fontSize:13,color:"#9CA3AF"}}>열람 기록 없음</div>
-                        :<div style={{display:"flex",flexDirection:"column",gap:6}}>
-                          {actLogs.map((lg,j)=>{
-                            if(!lg||!lg.placeName) return null;
-                            const d=lg.viewedAt?new Date(lg.viewedAt):new Date();
-                            const dm=Math.floor((now-d)/1000/60);
-                            const ts=isNaN(dm)||dm<1?"방금 전":dm<60?`${dm}분 전`:dm<1440?`${Math.floor(dm/60)}시간 전`:`${Math.floor(dm/1440)}일 전`;
-                            return(
-                              <div key={j} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:"#F9FAFB",borderRadius:8}}>
-                                <div>
-                                  <div style={{fontSize:13,fontWeight:600,color:"#111"}}>{lg.placeName}</div>
-                                  <div style={{fontSize:11,color:"#9CA3AF"}}>{lg.region||""} · {d.toLocaleString("ko-KR")}</div>
-                                </div>
-                                <div style={{fontSize:11,color:"#9CA3AF",flexShrink:0,marginLeft:8}}>{ts}</div>
-                              </div>
-                            );
-                          })}
-                        </div>}
-                      </div>
-                    );
-                  })}
-                </div>}
+                :<ActLogs activities={activities} now={now} getDeviceName={getDeviceName}/>}
               </div>
             )}
 
@@ -608,7 +662,7 @@ export default function App() {
                           </div>
                           <span style={{fontSize:12,background:st.bg,color:st.color,padding:"2px 8px",borderRadius:999,fontWeight:500}}>{st.label}</span>
                         </div>
-                        <div style={{fontSize:12,color:"#9CA3AF",marginBottom:4}}>{date.toLocaleString("ko-KR")}</div>
+                        <div style={{fontSize:12,color:"#9CA3AF",marginBottom:4}}>{date&&!isNaN(date)?date.toLocaleString("ko-KR"):"접속 기록 없음"}</div>
                         <div style={{fontSize:12,color:"#6B7280",marginBottom:10}}>위도 {loc.lat?.toFixed(5)} · 경도 {loc.lng?.toFixed(5)} · 정확도 {loc.accuracy}m</div>
                         <div style={{display:"flex",gap:6}}>
                           <button onClick={()=>window.open(naverUrl,"_blank")} style={{flex:1,padding:"8px 0",borderRadius:8,border:"none",background:"#03C75A",color:"#fff",fontSize:12,fontWeight:600,cursor:"pointer"}}>🗺 네이버 지도</button>
@@ -640,8 +694,8 @@ export default function App() {
             <button onClick={()=>setView("add")} style={{width:44,height:44,borderRadius:22,background:"#111",border:"none",color:"#fff",fontSize:24,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
           </div>
         </div>
-        <div style={{overflowX:"auto",display:"flex",gap:6,paddingBottom:8,marginBottom:4}}>{["전체지역",...uniqueRegions].map(r=><FBtn key={r} label={r==="전체지역"?"전체":r} active={activeRegion===r} onClick={()=>setActiveRegion(r)}/>)}</div>
-        <div style={{overflowX:"auto",display:"flex",gap:6,paddingBottom:8,marginBottom:4}}>{allTypeTags.map(f=><FBtn key={f.key} label={f.label} active={activeType===f.key} onClick={()=>setActiveType(f.key)}/>)}</div>
+        <div style={{overflowX:"auto",display:"flex",gap:6,paddingBottom:8,marginBottom:4}}>{["전체지역",...uniqueRegions].map(r=><FBtn key={r} label={r==="전체지역"?"전체":r} active={activeRegion===r} onClick={()=>{setActiveRegion(r);if(r!=="전체지역")logFilter("지역",r);}}/>)}</div>
+        <div style={{overflowX:"auto",display:"flex",gap:6,paddingBottom:8,marginBottom:4}}>{allTypeTags.map(f=><FBtn key={f.key} label={f.label} active={activeType===f.key} onClick={()=>{setActiveType(f.key);if(f.key!=="all")logFilter("장르",f.label);}}/>)}</div>
         <div style={{marginBottom:4}}>
           <button onClick={()=>{setConceptOpen(o=>!o);setConceptSearch("");}} style={{display:"flex",alignItems:"center",gap:6,padding:"7px 14px",borderRadius:999,border:"1px solid #E5E7EB",background:activeConcept!=="all"?"#111":"#fff",color:activeConcept!=="all"?"#fff":"#6B7280",fontSize:12,fontWeight:activeConcept!=="all"?600:400,cursor:"pointer"}}>
             {activeConcept==="all"?"🎨 컨셉·분위기":activeConcept}
@@ -653,7 +707,7 @@ export default function App() {
               <div style={{display:"flex",flexWrap:"wrap",gap:6,maxHeight:200,overflowY:"auto"}}>
                 <button onClick={()=>{setActiveConcept("all");setConceptOpen(false);}} style={{fontSize:12,padding:"5px 12px",borderRadius:999,border:"none",background:activeConcept==="all"?"#111":"#F3F4F6",color:activeConcept==="all"?"#fff":"#374151",cursor:"pointer",fontWeight:activeConcept==="all"?600:400}}>전체</button>
                 {allConcepts.filter(c=>c.includes(conceptSearch)).map(c=>(
-                  <button key={c} onClick={()=>{setActiveConcept(c);setConceptOpen(false);}} style={{fontSize:12,padding:"5px 12px",borderRadius:999,border:"none",background:activeConcept===c?"#111":"#F3F4F6",color:activeConcept===c?"#fff":"#374151",cursor:"pointer",fontWeight:activeConcept===c?600:400}}>{c}</button>
+                  <button key={c} onClick={()=>{setActiveConcept(c);setConceptOpen(false);logFilter("컨셉",c);}} style={{fontSize:12,padding:"5px 12px",borderRadius:999,border:"none",background:activeConcept===c?"#111":"#F3F4F6",color:activeConcept===c?"#fff":"#374151",cursor:"pointer",fontWeight:activeConcept===c?600:400}}>{c}</button>
                 ))}
               </div>
             </div>
@@ -673,7 +727,7 @@ export default function App() {
               <span style={{fontSize:12,color:"#CBD5E1"}}>{rplaces.length}</span>
             </div>
             {rplaces.map(p=>(
-              <div key={p.id} onClick={()=>{setSelectedPlace(p);setView("detail");logActivity(p);}} style={{background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:8,borderLeft:p.숲길?"3px solid #10B981":"none",border:p.숲길?"1px solid #E5E7EB":"1px solid #F3F4F6",cursor:"pointer",WebkitTapHighlightColor:"transparent"}}>
+              <div key={p.id} data-placeid={p.id} data-placename={p.name} data-region={p.region} onClick={()=>{setSelectedPlace(p);setView("detail");logActivity(p,"click");}} style={{background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:8,borderLeft:p.숲길?"3px solid #10B981":"none",border:p.숲길?"1px solid #E5E7EB":"1px solid #F3F4F6",cursor:"pointer",WebkitTapHighlightColor:"transparent"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                   <span style={{fontSize:15,fontWeight:600,color:"#111",flex:1}}>{p.name}</span>
                   <div style={{display:"flex",gap:4,alignItems:"center",flexShrink:0,marginLeft:8}}>
