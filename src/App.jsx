@@ -286,35 +286,6 @@ export default function App() {
     fetch("/api/activity-log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device:did,placeName:value,region:filterType,type:"filter"})}).catch(()=>{});
   },[]);
 
-  // 10초 노출 감지 (Intersection Observer)
-  useEffect(()=>{
-    if(view!=="list") return;
-    const timers = new Map();
-    const observer = new IntersectionObserver((entries)=>{
-      entries.forEach(entry=>{
-        const el = entry.target;
-        const pid = el.dataset.placeid;
-        if(!pid) return;
-        if(entry.isIntersecting){
-          if(!timers.has(pid)){
-            const t = setTimeout(()=>{
-              const name = el.dataset.placename;
-              const region = el.dataset.region;
-              if(name) logActivity({name,region},"view");
-              timers.delete(pid);
-            }, 10000);
-            timers.set(pid, t);
-          }
-        } else {
-          if(timers.has(pid)){ clearTimeout(timers.get(pid)); timers.delete(pid); }
-        }
-      });
-    },{threshold:0.5});
-    const cards = document.querySelectorAll("[data-placeid]");
-    cards.forEach(c=>observer.observe(c));
-    return()=>{ observer.disconnect(); timers.forEach(t=>clearTimeout(t)); };
-  },[view,filtered]);
-
   const exportLink = async () => {
     try { await navigator.clipboard.writeText("https://dongdong-gotgot.vercel.app"); showToast("📋 링크 복사 완료! 상대방에게 보내세요 💌"); }
     catch { showToast("링크 복사 실패"); }
