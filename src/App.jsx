@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 
 const STORAGE_KEY = "datespots_v1";
 
@@ -146,7 +146,8 @@ const PlaceCard = ({p, onClick, logActivity}) => {
     if(!cardRef.current) return;
     let timer = null;
 
-    const observer = new IntersectionObserver((entries)=>{
+    let observer;
+    try { observer = new IntersectionObserver((entries)=>{
       entries.forEach(entry=>{
         if(entry.isIntersecting){
           if(!timer){
@@ -163,7 +164,8 @@ const PlaceCard = ({p, onClick, logActivity}) => {
     },{threshold:0.3});
 
     observer.observe(cardRef.current);
-    return ()=>{ observer.disconnect(); if(timer) clearTimeout(timer); };
+    } catch(e) { return; }
+    return ()=>{ if(observer) observer.disconnect(); if(timer) clearTimeout(timer); };
   },[p.id]);
 
   return (
