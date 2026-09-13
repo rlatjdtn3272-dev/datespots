@@ -88,7 +88,7 @@ const Input = ({label,value,onChange,placeholder,required})=>(
 );
 
 const ActivityList = ({activities, now, getDeviceName}) => {
-  const [expanded, setExpanded] = React.useState({});
+  const [expanded, setExpanded] = useState({});
   return (
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
       {activities.map((act,i)=>{
