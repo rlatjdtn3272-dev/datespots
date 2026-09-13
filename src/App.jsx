@@ -87,50 +87,6 @@ const Input = ({label,value,onChange,placeholder,required})=>(
   </div>
 );
 
-const ActivityList = ({activities, now, getDeviceName}) => {
-  const [expanded, setExpanded] = useState({});
-  return (
-    <div style={{display:"flex",flexDirection:"column",gap:12}}>
-      {activities.map((act,i)=>{
-        const isExp = expanded[act.device];
-        const logs = act.logs || [];
-        const shown = isExp ? logs : logs.slice(0,10);
-        return(
-          <div key={i} style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:"1px solid #F3F4F6"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-              <div style={{fontSize:14,fontWeight:700,color:"#111"}}>📱 {getDeviceName(act.device)}</div>
-              <div style={{fontSize:12,color:"#9CA3AF"}}>총 {logs.length}개</div>
-            </div>
-            {logs.length===0?<div style={{fontSize:13,color:"#9CA3AF"}}>열람 기록 없음</div>
-            :<div style={{display:"flex",flexDirection:"column",gap:6}}>
-              {shown.map((log,j)=>{
-                const date=new Date(log.viewedAt);
-                const diffMin=Math.floor((new Date()-date)/1000/60);
-                const timeStr=diffMin<1?"방금 전":diffMin<60?`${diffMin}분 전`:diffMin<1440?`${Math.floor(diffMin/60)}시간 전`:`${Math.floor(diffMin/1440)}일 전`;
-                return(
-                  <div key={j} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:"#F9FAFB",borderRadius:8}}>
-                    <div>
-                      <div style={{fontSize:13,fontWeight:600,color:"#111"}}>{log.placeName}</div>
-                      <div style={{fontSize:11,color:"#9CA3AF"}}>{log.region} · {date.toLocaleString("ko-KR")}</div>
-                    </div>
-                    <div style={{fontSize:11,color:"#9CA3AF",flexShrink:0,marginLeft:8}}>{timeStr}</div>
-                  </div>
-                );
-              })}
-              {logs.length>10&&(
-                <button onClick={()=>setExpanded(prev=>({...prev,[act.device]:!isExp}))}
-                  style={{width:"100%",padding:"8px",borderRadius:8,border:"1px solid #E5E7EB",background:"none",fontSize:12,color:"#6B7280",cursor:"pointer",marginTop:4}}>
-                  {isExp?`▲ 접기`:`▼ 전체보기 (${logs.length-10}개 더)`}
-                </button>
-              )}
-            </div>}
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
 const BottomTab = ({tab,setTab}) => (
   <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"#fff",borderTop:"1px solid #F3F4F6",display:"flex",zIndex:50}}>
     <button onClick={()=>setTab("list")} style={{flex:1,padding:"10px 0 14px",border:"none",background:"none",cursor:"pointer",fontSize:10,color:tab==="list"?"#111":"#9CA3AF",fontWeight:tab==="list"?700:400,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
@@ -559,7 +515,36 @@ export default function App() {
                 </div>
                 {actLoading?<div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}>불러오는 중...</div>
                 :activities.length===0?<div style={{textAlign:"center",padding:"40px 0",color:"#9CA3AF"}}><div style={{fontSize:30,marginBottom:8}}>👀</div><div style={{fontSize:14}}>열람 기록이 없어요</div></div>
-                :<ActivityList activities={activities} now={now} getDeviceName={getDeviceName}/>}
+                :<div style={{display:"flex",flexDirection:"column",gap:12}}>
+                  {activities.map((act,i)=>{
+                    const actLogs = act.logs || [];
+                    return(
+                      <div key={i} style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:"1px solid #F3F4F6"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                          <div style={{fontSize:14,fontWeight:700,color:"#111"}}>📱 {getDeviceName(act.device)}</div>
+                          <div style={{fontSize:12,color:"#9CA3AF"}}>총 {actLogs.length}개</div>
+                        </div>
+                        {actLogs.length===0?<div style={{fontSize:13,color:"#9CA3AF"}}>열람 기록 없음</div>
+                        :<div style={{display:"flex",flexDirection:"column",gap:6}}>
+                          {actLogs.map((lg,j)=>{
+                            const d=new Date(lg.viewedAt);
+                            const dm=Math.floor((now-d)/1000/60);
+                            const ts=dm<1?"방금 전":dm<60?`${dm}분 전`:dm<1440?`${Math.floor(dm/60)}시간 전`:`${Math.floor(dm/1440)}일 전`;
+                            return(
+                              <div key={j} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:"#F9FAFB",borderRadius:8}}>
+                                <div>
+                                  <div style={{fontSize:13,fontWeight:600,color:"#111"}}>{lg.placeName}</div>
+                                  <div style={{fontSize:11,color:"#9CA3AF"}}>{lg.region} · {d.toLocaleString("ko-KR")}</div>
+                                </div>
+                                <div style={{fontSize:11,color:"#9CA3AF",flexShrink:0,marginLeft:8}}>{ts}</div>
+                              </div>
+                            );
+                          })}
+                        </div>}
+                      </div>
+                    );
+                  })}
+                </div>}
               </div>
             )}
 
