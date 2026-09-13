@@ -137,6 +137,34 @@ const ActLogs = ({activities, now, getDeviceName}) => {
   );
 };
 
+const PlaceCard = ({p, onClick, logActivity}) => {
+  useEffect(()=>{
+    const t = setTimeout(()=>{
+      logActivity({name:p.name, region:p.region}, "view");
+    }, 10000);
+    return ()=>clearTimeout(t);
+  },[p.id]);
+
+  return (
+    <div onClick={onClick} data-placeid={p.id}
+      style={{background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:8,borderLeft:p.숲길?"3px solid #10B981":"none",border:p.숲길?"1px solid #E5E7EB":"1px solid #F3F4F6",cursor:"pointer",WebkitTapHighlightColor:"transparent"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+        <span style={{fontSize:15,fontWeight:600,color:"#111",flex:1}}>{p.name}</span>
+        <div style={{display:"flex",gap:4,alignItems:"center",flexShrink:0,marginLeft:8}}>
+          {p.visited&&<span style={{fontSize:10,background:"#DCFCE7",color:"#166634",padding:"2px 8px",borderRadius:4,fontWeight:700}}>✓ 방문</span>}
+          {p.id?.startsWith("u")&&<span style={{fontSize:10,background:"#EEF2FF",color:"#6366F1",padding:"2px 6px",borderRadius:4}}>추가됨</span>}
+        </div>
+      </div>
+      <div style={{fontSize:12,color:"#9CA3AF",marginBottom:8,lineHeight:1.4}}>{p.addr}</div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:p.concepts?.length?6:0}}>
+        {p.tags?.map(t=><Tag key={t} tag={t}/>)}
+      </div>
+      {p.concepts?.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:4}}>{p.concepts.map(c=><Chip key={c} label={c}/>)}</div>}
+      {p.note&&<div style={{fontSize:11,color:"#9CA3AF",marginTop:6}}>{p.note}</div>}
+    </div>
+  );
+};
+
 const BottomTab = ({tab,setTab}) => (
   <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"#fff",borderTop:"1px solid #F3F4F6",display:"flex",zIndex:50}}>
     <button onClick={()=>setTab("list")} style={{flex:1,padding:"10px 0 14px",border:"none",background:"none",cursor:"pointer",fontSize:10,color:tab==="list"?"#111":"#9CA3AF",fontWeight:tab==="list"?700:400,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
@@ -700,19 +728,7 @@ export default function App() {
               <span style={{fontSize:12,color:"#CBD5E1"}}>{rplaces.length}</span>
             </div>
             {rplaces.map(p=>(
-              <div key={p.id} data-placeid={p.id} data-placename={p.name} data-region={p.region} onClick={()=>{setSelectedPlace(p);setView("detail");logActivity(p,"click");}} style={{background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:8,borderLeft:p.숲길?"3px solid #10B981":"none",border:p.숲길?"1px solid #E5E7EB":"1px solid #F3F4F6",cursor:"pointer",WebkitTapHighlightColor:"transparent"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
-                  <span style={{fontSize:15,fontWeight:600,color:"#111",flex:1}}>{p.name}</span>
-                  <div style={{display:"flex",gap:4,alignItems:"center",flexShrink:0,marginLeft:8}}>
-                    {p.visited&&<span style={{fontSize:10,background:"#DCFCE7",color:"#166634",padding:"2px 8px",borderRadius:4,fontWeight:700}}>✓ 방문</span>}
-                    {p.id?.startsWith("u")&&<span style={{fontSize:10,background:"#EEF2FF",color:"#6366F1",padding:"2px 6px",borderRadius:4}}>추가됨</span>}
-                  </div>
-                </div>
-                <div style={{fontSize:12,color:"#9CA3AF",marginBottom:8,lineHeight:1.4}}>{p.addr}</div>
-                <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:p.concepts?.length?6:0}}>{p.tags?.map(t=><Tag key={t} tag={t}/>)}</div>
-                {p.concepts?.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:4}}>{p.concepts.map(c=><Chip key={c} label={c}/>)}</div>}
-                {p.note&&<div style={{fontSize:11,color:"#9CA3AF",marginTop:6}}>{p.note}</div>}
-              </div>
+              <PlaceCard key={p.id} p={p} logActivity={logActivity} onClick={()=>{setSelectedPlace(p);setView("detail");logActivity(p,"click");}}/>
             ))}
           </div>
         ))}
