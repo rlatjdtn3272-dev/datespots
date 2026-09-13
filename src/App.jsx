@@ -92,50 +92,6 @@ const ActivityList = ({activities, now, getDeviceName}) => {
   return (
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
       {activities.map((act,i)=>{
-        const isExpanded = expanded[act.device];
-        const logs = act.logs || [];
-        const shown = isExpanded ? logs : logs.slice(0,10);
-        return(
-          <div key={i} style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:"1px solid #F3F4F6"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-              <div style={{fontSize:14,fontWeight:700,color:"#111"}}>📱 {getDeviceName(act.device)}</div>
-              <div style={{fontSize:12,color:"#9CA3AF"}}>{logs.length}개</div>
-            </div>
-            {logs.length===0?<div style={{fontSize:13,color:"#9CA3AF"}}>열람 기록 없음</div>
-            :<div style={{display:"flex",flexDirection:"column",gap:6}}>
-              {shown.map((log,j)=>{
-                const date=new Date(log.viewedAt);
-                const diffMin=Math.floor((new Date()-date)/1000/60);
-                const timeStr=diffMin<1?"방금 전":diffMin<60?`${diffMin}분 전`:diffMin<1440?`${Math.floor(diffMin/60)}시간 전`:`${Math.floor(diffMin/1440)}일 전`;
-                return(
-                  <div key={j} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:"#F9FAFB",borderRadius:8}}>
-                    <div>
-                      <div style={{fontSize:13,fontWeight:600,color:"#111"}}>{log.placeName}</div>
-                      <div style={{fontSize:11,color:"#9CA3AF"}}>{log.region} · {date.toLocaleString("ko-KR")}</div>
-                    </div>
-                    <div style={{fontSize:11,color:"#9CA3AF",flexShrink:0,marginLeft:8}}>{timeStr}</div>
-                  </div>
-                );
-              })}
-              {logs.length>10&&(
-                <button onClick={()=>setExpanded(prev=>({...prev,[act.device]:!isExpanded}))}
-                  style={{width:"100%",padding:"8px",borderRadius:8,border:"1px solid #E5E7EB",background:"none",fontSize:12,color:"#6B7280",cursor:"pointer",marginTop:4}}>
-                  {isExpanded?`▲ 접기`:`▼ 전체보기 (${logs.length-10}개 더)`}
-                </button>
-              )}
-            </div>}
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
-const ActivityList = ({activities, now, getDeviceName}) => {
-  const [expanded, setExpanded] = React.useState({});
-  return (
-    <div style={{display:"flex",flexDirection:"column",gap:12}}>
-      {activities.map((act,i)=>{
         const isExp = expanded[act.device];
         const logs = act.logs || [];
         const shown = isExp ? logs : logs.slice(0,10);
@@ -619,14 +575,14 @@ export default function App() {
                     const date=new Date(loc.updatedAt);
                     const diffMin=Math.floor((now-date)/1000/60);
                     const st=getStatusBadge(diffMin);
-                    const naverUrl=`https://map.naver.com/p/search/${loc.lat},${loc.lng}`;
-                    const kakaoUrl=`https://map.kakao.com/link/map/위치,${loc.lat},${loc.lng}`;
+                    const naverUrl=`https://map.naver.com/p/?lat=${loc.lat}&lng=${loc.lng}&zoom=16`;
+                    const kakaoUrl=`https://map.kakao.com/link/map/현재위치,${loc.lat},${loc.lng}`;
                     return(
                       <div key={i} style={{background:"#fff",borderRadius:14,padding:"14px 16px",border:"1px solid #F3F4F6"}}>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
                           <div style={{display:"flex",alignItems:"center",gap:6}}>
                             <span style={{width:9,height:9,borderRadius:"50%",background:st.dot,display:"inline-block"}}/>
-                            <span style={{fontSize:14,fontWeight:600,color:"#111"}}>{deviceNames[log.device] || `기기 ${i+1}`}</span>
+                            <span style={{fontSize:14,fontWeight:600,color:"#111"}}>{getDeviceName(loc.device)}</span>
                             {diffMin<2&&<span style={{fontSize:10,background:"#DCFCE7",color:"#166534",padding:"1px 7px",borderRadius:999,fontWeight:700}}>접속 중</span>}
                           </div>
                           <span style={{fontSize:12,background:st.bg,color:st.color,padding:"2px 8px",borderRadius:999,fontWeight:500}}>{st.label}</span>
