@@ -11,13 +11,18 @@ export default async function handler(req, res) {
     try {
       const { device, placeName, region } = req.body;
       const now = new Date().toISOString();
-      // 최근 50개 활동 로그 유지
       const key = `activity_${device}`;
-      const existing = await fetch(`${url}/get/${key}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).then(r => r.json());
 
-      const logs = existing.result ? JSON.parse(existing.result) : [];
+      let logs = [];
+      try {
+        const prev = await fetch(`${url}/get/${key}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const prevData = await prev.json();
+        if (prevData.result) logs = JSON.parse(prevData.result);
+        if (!Array.isArray(logs)) logs = [];
+      } catch { logs = []; }
+
       logs.unshift({ placeName, region, viewedAt: now });
       if (logs.length > 50) logs.splice(50);
 
@@ -38,7 +43,7 @@ export default async function handler(req, res) {
         headers: { Authorization: `Bearer ${token}` }
       });
       const keysData = await keysRes.json();
-      const keys = keysData.result || [];
+      const keys = Array.isArray(keysData.result) ? keysData.result : [];
       if (keys.length === 0) return res.status(200).json({ ok: true, activities: [] });
 
       const pipeline = keys.map(k => ["GET", k]);
@@ -48,10 +53,17 @@ export default async function handler(req, res) {
         body: JSON.stringify(pipeline)
       });
       const valData = await valRes.json();
-      const activities = keys.map((k, i) => ({
-        device: k.replace("activity_", ""),
-        logs: valData[i]?.result ? JSON.parse(valData[i].result) : []
-      }));
+
+      const activities = keys.map((k, i) => {
+        let logs = [];
+        try {
+          const raw = Array.isArray(valData) ? valData[i]?.result : null;
+          if (raw) logs = JSON.parse(raw);
+          if (!Array.isArray(logs)) logs = [];
+        } catch { logs = []; }
+        return { device: k.replace("activity_", ""), logs };
+      });
+
       res.status(200).json({ ok: true, activities });
     } catch (e) {
       res.status(500).json({ ok: false, error: e.message });
